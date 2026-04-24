@@ -23,8 +23,8 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    getClient().auth.getUser().then(({ data: { user } }) => {
-      setIsGuest(!user)
+    getClient().auth.getUser().then((res) => {
+      setIsGuest(!res.data.user)
     })
   }, [])
 
