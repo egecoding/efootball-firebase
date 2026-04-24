@@ -8,10 +8,11 @@ import type { RoundWithMatches, MatchWithPlayers, Profile } from '@/types/databa
 interface BracketViewProps {
   rounds: RoundWithMatches[]
   currentUserId?: string
+  organizerId?: string
   profileMap?: Record<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>>
 }
 
-export function BracketView({ rounds, currentUserId, profileMap = {} }: BracketViewProps) {
+export function BracketView({ rounds, currentUserId, organizerId, profileMap = {} }: BracketViewProps) {
   if (!rounds || rounds.length === 0) return null
 
   return (
@@ -23,6 +24,7 @@ export function BracketView({ rounds, currentUserId, profileMap = {} }: BracketV
             round={round}
             totalRounds={rounds.length}
             currentUserId={currentUserId}
+            organizerId={organizerId}
             profileMap={profileMap}
           />
         ))}
@@ -35,11 +37,13 @@ function RoundColumn({
   round,
   totalRounds,
   currentUserId,
+  organizerId,
   profileMap,
 }: {
   round: RoundWithMatches
   totalRounds: number
   currentUserId?: string
+  organizerId?: string
   profileMap: Record<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>>
 }) {
   const sortedMatches = [...(round.matches ?? [])].sort(
@@ -59,6 +63,7 @@ function RoundColumn({
           key={match.id}
           match={match as unknown as MatchWithPlayers}
           currentUserId={currentUserId}
+          organizerId={organizerId}
           isFinal={round.round_number === totalRounds}
           profileMap={profileMap}
         />
@@ -70,19 +75,22 @@ function RoundColumn({
 function MatchCard({
   match,
   currentUserId,
+  organizerId,
   isFinal,
   profileMap,
 }: {
   match: MatchWithPlayers
   currentUserId?: string
+  organizerId?: string
   isFinal: boolean
   profileMap: Record<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>>
 }) {
   const isActivePlayer =
     currentUserId &&
     (match.player1_id === currentUserId || match.player2_id === currentUserId)
+  const isOrganizer = !!organizerId && currentUserId === organizerId
   const isSubmittable =
-    isActivePlayer &&
+    (isActivePlayer || isOrganizer) &&
     (match.status === 'scheduled' || match.status === 'awaiting_confirmation')
 
   const p1Profile = match.player1_id ? profileMap[match.player1_id] : null

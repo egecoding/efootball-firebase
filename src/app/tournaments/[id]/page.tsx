@@ -149,6 +149,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
           <BracketView
             rounds={rounds as unknown as RoundWithMatches[]}
             currentUserId={user?.id}
+            organizerId={tournament.organizer_id}
             profileMap={profileMap}
           />
         </div>
