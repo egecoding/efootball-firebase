@@ -184,6 +184,7 @@ export function ManagePanel({ tournament, participants }: ManagePanelProps) {
         onClose={() => setInviteOpen(false)}
         inviteCode={tournament.invite_code}
         tournamentId={tournament.id}
+        tournamentTitle={tournament.title}
       />
     </div>
   )

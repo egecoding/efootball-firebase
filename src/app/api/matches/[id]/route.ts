@@ -41,11 +41,7 @@ export async function PATCH(
   if (player1_score < 0 || player2_score < 0) {
     return NextResponse.json({ error: 'Scores must be non-negative' }, { status: 400 })
   }
-  if (player1_score === player2_score) {
-    return NextResponse.json({ error: 'Draws are not allowed in single elimination' }, { status: 400 })
-  }
-
-  // Fetch match
+  // Fetch match + tournament format
   const { data: match } = await supabase
     .from('matches')
     .select(
@@ -56,17 +52,19 @@ export async function PATCH(
 
   if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
 
-  const isPlayer =
-    match.player1_id === user.id || match.player2_id === user.id
-
-  // Allow organizer to also submit
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('organizer_id')
+    .select('organizer_id, format')
     .eq('id', match.tournament_id)
     .single()
 
   const isOrganizer = tournament?.organizer_id === user.id
+  const isPlayer = match.player1_id === user.id || match.player2_id === user.id
+  const format = (tournament?.format as string) ?? 'knockout'
+
+  if (player1_score === player2_score && format === 'knockout') {
+    return NextResponse.json({ error: 'Draws are not allowed in knockout tournaments' }, { status: 400 })
+  }
 
   if (!isPlayer && !isOrganizer) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -167,10 +165,11 @@ async function finalizeMatch(
   screenshot_url: string | null,
   submittedBy: string
 ) {
-  const winner_id =
-    player1_score > player2_score ? match.player1_id : match.player2_id
-  const loser_id =
-    player1_score > player2_score ? match.player2_id : match.player1_id
+  const isDraw = player1_score === player2_score
+  const winner_id = isDraw ? null
+    : player1_score > player2_score ? match.player1_id : match.player2_id
+  const loser_id = isDraw ? null
+    : player1_score > player2_score ? match.player2_id : match.player1_id
 
   await supabase
     .from('matches')
@@ -185,13 +184,9 @@ async function finalizeMatch(
     })
     .eq('id', match.id)
 
-  // Atomic win/loss increment
-  if (winner_id) {
-    await supabase.rpc('increment_wins', { uid: winner_id })
-  }
-  if (loser_id) {
-    await supabase.rpc('increment_losses', { uid: loser_id })
-  }
+  // Atomic win/loss increment (only for registered users, not draws)
+  if (winner_id) await supabase.rpc('increment_wins', { uid: winner_id })
+  if (loser_id) await supabase.rpc('increment_losses', { uid: loser_id })
 
   // Advance winner to next match (handle guest players too)
   if (match.next_match_id && match.next_match_slot) {

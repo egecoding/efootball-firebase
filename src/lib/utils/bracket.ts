@@ -127,3 +127,52 @@ function nextPowerOf2(n: number): number {
   if (n <= 1) return 1
   return Math.pow(2, Math.ceil(Math.log2(n)))
 }
+
+export interface RoundRobinMatch {
+  matchNumber: number
+  roundNumber: number
+  player1: BracketParticipant
+  player2: BracketParticipant
+}
+
+/**
+ * Generates a round-robin schedule using the circle method.
+ * Every participant plays every other participant exactly once.
+ */
+export function generateRoundRobin(
+  participants: BracketParticipant[]
+): RoundRobinMatch[] {
+  const list = [...participants]
+  // Pad to even number with a bye
+  if (list.length % 2 !== 0) list.push({ id: null, name: 'BYE' })
+
+  const n = list.length
+  const rounds = n - 1
+  const matchesPerRound = n / 2
+  const result: RoundRobinMatch[] = []
+  let matchNumber = 1
+
+  // Circle method: fix list[0], rotate the rest
+  const rotating = list.slice(1)
+
+  for (let r = 0; r < rounds; r++) {
+    const current = [list[0], ...rotating]
+    for (let m = 0; m < matchesPerRound; m++) {
+      const p1 = current[m]
+      const p2 = current[n - 1 - m]
+      // Skip bye matches
+      if (p1.name !== 'BYE' && p2.name !== 'BYE') {
+        result.push({
+          matchNumber: matchNumber++,
+          roundNumber: r + 1,
+          player1: p1,
+          player2: p2,
+        })
+      }
+    }
+    // Rotate: move last element to front of rotating array
+    rotating.unshift(rotating.pop()!)
+  }
+
+  return result
+}

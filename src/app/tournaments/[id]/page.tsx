@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { TournamentStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { BracketView } from '@/components/tournament/BracketView'
+import { ScheduleView } from '@/components/tournament/ScheduleView'
+import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
-import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, Profile } from '@/types/database'
+import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
 
 interface PageProps {
   params: { id: string }
@@ -140,24 +142,49 @@ export default async function TournamentDetailPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Bracket */}
+      {/* Bracket / Schedule */}
       {rounds && rounds.length > 0 ? (
         <div className="mb-10">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Bracket
-          </h2>
-          <BracketView
-            rounds={rounds as unknown as RoundWithMatches[]}
-            currentUserId={user?.id}
-            organizerId={tournament.organizer_id}
-            profileMap={profileMap}
-          />
+          {tournament.format === 'knockout' || !tournament.format ? (
+            <>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
+              <BracketView
+                rounds={rounds as unknown as RoundWithMatches[]}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
+            </>
+          ) : (
+            <>
+              {/* Standings */}
+              {participants && participants.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Standings</h2>
+                  <StandingsTable
+                    matches={(rounds as unknown as RoundWithMatches[]).flatMap((r) => r.matches) as unknown as MatchWithPlayers[]}
+                    participants={participants as unknown as ParticipantWithProfile[]}
+                    format={tournament.format as 'round_robin' | 'league'}
+                  />
+                </div>
+              )}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Schedule</h2>
+              <ScheduleView
+                rounds={rounds as unknown as RoundWithMatches[]}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
+            </>
+          )}
         </div>
       ) : (
         tournament.status === 'open' && (
           <div className="mb-10 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
             <p className="text-gray-400 dark:text-gray-500">
-              Bracket will appear once the organizer starts the tournament.
+              {tournament.format === 'knockout' || !tournament.format
+                ? 'Bracket will appear once the organizer starts the tournament.'
+                : 'Schedule will appear once the organizer starts the tournament.'}
             </p>
           </div>
         )

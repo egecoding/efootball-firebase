@@ -46,8 +46,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { title, description, game_name, max_participants, is_public, starts_at } =
-    body
+  const { title, description, game_name, max_participants, is_public, starts_at, format } = body
 
   if (!title?.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -58,6 +57,8 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
+  const validFormats = ['knockout', 'round_robin', 'league']
+  const resolvedFormat = validFormats.includes(format) ? format : 'knockout'
 
   const { data, error } = await supabase
     .from('tournaments')
@@ -67,6 +68,7 @@ export async function POST(request: Request) {
       description: description?.trim() || null,
       game_name: game_name?.trim() || 'eFootball',
       max_participants,
+      format: resolvedFormat,
       is_public: is_public ?? true,
       starts_at: starts_at || null,
     })

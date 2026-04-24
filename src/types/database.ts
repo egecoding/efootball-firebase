@@ -1,4 +1,5 @@
 export type TournamentStatus = 'draft' | 'open' | 'in_progress' | 'completed'
+export type TournamentFormat = 'knockout' | 'round_robin' | 'league'
 export type MatchStatus =
   | 'pending'
   | 'scheduled'
@@ -27,6 +28,7 @@ export interface Tournament {
   game_name: string
   max_participants: number
   status: TournamentStatus
+  format: TournamentFormat
   invite_code: string
   is_public: boolean
   starts_at: string | null
