@@ -26,7 +26,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       supabase
         .from('tournaments')
         .select(
-          'id, organizer_id, title, description, game_name, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
+          'id, organizer_id, title, description, game_name, max_participants, status, format, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
         )
         .eq('id', params.id)
         .single(),
@@ -145,7 +145,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       {/* Bracket / Schedule */}
       {rounds && rounds.length > 0 ? (
         <div className="mb-10">
-          {tournament.format === 'knockout' || !tournament.format ? (
+          {(typedTournament as unknown as { format?: string }).format === 'knockout' || !(typedTournament as unknown as { format?: string }).format ? (
             <>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
               <BracketView
@@ -164,7 +164,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                   <StandingsTable
                     matches={(rounds as unknown as RoundWithMatches[]).flatMap((r) => r.matches) as unknown as MatchWithPlayers[]}
                     participants={participants as unknown as ParticipantWithProfile[]}
-                    format={tournament.format as 'round_robin' | 'league'}
+                    format={(typedTournament as unknown as { format?: string }).format as 'round_robin' | 'league'}
                   />
                 </div>
               )}
@@ -182,7 +182,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
         tournament.status === 'open' && (
           <div className="mb-10 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
             <p className="text-gray-400 dark:text-gray-500">
-              {tournament.format === 'knockout' || !tournament.format
+              {(typedTournament as unknown as { format?: string }).format === 'knockout' || !(typedTournament as unknown as { format?: string }).format
                 ? 'Bracket will appear once the organizer starts the tournament.'
                 : 'Schedule will appear once the organizer starts the tournament.'}
             </p>
