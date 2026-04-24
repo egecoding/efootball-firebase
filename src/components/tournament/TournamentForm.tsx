@@ -18,7 +18,7 @@ interface TournamentFormData {
 }
 
 const FORMAT_OPTIONS: { value: TournamentFormat; label: string; desc: string }[] = [
-  { value: 'knockout', label: 'Knockout', desc: 'Single-elimination bracket. Lose once and you're out.' },
+  { value: 'knockout', label: 'Knockout', desc: "Single-elimination bracket. Lose once and you're out." },
   { value: 'round_robin', label: 'Round Robin', desc: 'Everyone plays everyone. Most wins takes the title.' },
   { value: 'league', label: 'League', desc: 'Everyone plays everyone. Points: 3W / 1D / 0L.' },
 ]
