@@ -52,9 +52,9 @@ export async function POST(request: Request) {
   if (!title?.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
   }
-  if (![4, 8, 16, 32].includes(max_participants)) {
+  if (!Number.isInteger(max_participants) || max_participants < 2 || max_participants > 128) {
     return NextResponse.json(
-      { error: 'max_participants must be 4, 8, 16, or 32' },
+      { error: 'max_participants must be a whole number between 2 and 128' },
       { status: 400 }
     )
   }
