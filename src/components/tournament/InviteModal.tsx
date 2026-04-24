@@ -16,10 +16,8 @@ interface InviteModalProps {
 export function InviteModal({ open, onClose, inviteCode, tournamentId, tournamentTitle }: InviteModalProps) {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null)
 
-  const inviteLink =
-    typeof window !== 'undefined'
-      ? `${window.location.origin}/tournaments/${tournamentId}/join?code=${inviteCode}`
-      : ''
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
+  const inviteLink = baseUrl ? `${baseUrl}/tournaments/${tournamentId}/join?code=${inviteCode}` : ''
 
   const shareText = `Join ${tournamentTitle ? `"${tournamentTitle}"` : 'my tournament'}! Tap the link to register: ${inviteLink}`
 

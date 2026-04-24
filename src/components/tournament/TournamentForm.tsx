@@ -95,7 +95,8 @@ export function TournamentForm() {
 
   // --- Share card shown after creation ---
   if (created) {
-    const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/tournaments/${created.id}/join?code=${created.invite_code}`
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
+    const inviteLink = `${baseUrl}/tournaments/${created.id}/join?code=${created.invite_code}`
     const shareText = `Join "${created.title}"! Tap the link to register: ${inviteLink}`
 
     const copyLink = async () => {
