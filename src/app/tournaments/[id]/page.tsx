@@ -31,14 +31,14 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       supabase
         .from('participants')
         .select(
-          'id, tournament_id, user_id, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
+          'id, tournament_id, user_id, name, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
         )
         .eq('tournament_id', params.id)
         .order('joined_at', { ascending: true }),
       supabase
         .from('rounds')
         .select(
-          'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player2_id, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at)'
+          'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at)'
         )
         .eq('tournament_id', params.id)
         .order('round_number', { ascending: true }),

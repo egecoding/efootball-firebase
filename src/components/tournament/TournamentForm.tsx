@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { cn } from '@/lib/utils/cn'
 import { X } from 'lucide-react'
 
 interface TournamentFormData {
@@ -14,13 +13,6 @@ interface TournamentFormData {
   max_participants: number
   is_public: boolean
   starts_at: string
-}
-
-interface UserResult {
-  id: string
-  username: string
-  display_name: string | null
-  avatar_url: string | null
 }
 
 export function TournamentForm() {
@@ -35,13 +27,9 @@ export function TournamentForm() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Participant search state
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<UserResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [invited, setInvited] = useState<UserResult[]>([])
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [playerInput, setPlayerInput] = useState('')
+  const [players, setPlayers] = useState<string[]>([])
+  const playerInputRef = useRef<HTMLInputElement>(null)
 
   function update<K extends keyof TournamentFormData>(
     field: K,
@@ -50,33 +38,17 @@ export function TournamentForm() {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([])
-      return
-    }
-    if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    searchTimeout.current = setTimeout(async () => {
-      setSearching(true)
-      const res = await fetch(`/api/users?q=${encodeURIComponent(searchQuery)}`)
-      if (res.ok) {
-        const data: UserResult[] = await res.json()
-        // filter out already invited
-        setSearchResults(data.filter((u) => !invited.some((i) => i.id === u.id)))
-      }
-      setSearching(false)
-    }, 300)
-  }, [searchQuery, invited])
-
-  function addUser(u: UserResult) {
-    if (invited.length >= form.max_participants - 1) return // reserve 1 slot for organizer
-    setInvited((prev) => [...prev, u])
-    setSearchQuery('')
-    setSearchResults([])
+  function addPlayer() {
+    const name = playerInput.trim()
+    if (!name || players.includes(name)) return
+    if (players.length >= form.max_participants - 1) return
+    setPlayers((prev) => [...prev, name])
+    setPlayerInput('')
+    playerInputRef.current?.focus()
   }
 
-  function removeUser(id: string) {
-    setInvited((prev) => prev.filter((u) => u.id !== id))
+  function removePlayer(name: string) {
+    setPlayers((prev) => prev.filter((p) => p !== name))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -102,12 +74,11 @@ export function TournamentForm() {
 
     const tournament = await res.json()
 
-    // Add invited participants
-    for (const u of invited) {
+    for (const name of players) {
       await fetch(`/api/tournaments/${tournament.id}/participants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: u.id }),
+        body: JSON.stringify({ name }),
       })
     }
 
@@ -115,7 +86,7 @@ export function TournamentForm() {
     router.refresh()
   }
 
-  const slotsLeft = form.max_participants - 1 - invited.length // -1 for organizer
+  const slotsLeft = form.max_participants - 1 - players.length
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -170,16 +141,14 @@ export function TournamentForm() {
           role="switch"
           aria-checked={form.is_public}
           onClick={() => update('is_public', !form.is_public)}
-          className={cn(
-            'relative h-6 w-11 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2',
+          className={`relative h-6 w-11 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 ${
             form.is_public ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-700'
-          )}
+          }`}
         >
           <span
-            className={cn(
-              'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
               form.is_public ? 'translate-x-5' : 'translate-x-0.5'
-            )}
+            }`}
           />
         </button>
         <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -187,63 +156,40 @@ export function TournamentForm() {
         </span>
       </div>
 
-      {/* Add Participants */}
+      {/* Add Players */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Add participants{' '}
+          Add players{' '}
           <span className="font-normal text-gray-400">
             (optional · {slotsLeft} slot{slotsLeft !== 1 ? 's' : ''} left)
           </span>
         </label>
-
-        <div className="relative">
-          <Input
-            placeholder="Search by username…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+        <div className="flex gap-2">
+          <input
+            ref={playerInputRef}
+            type="text"
+            value={playerInput}
+            onChange={(e) => setPlayerInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addPlayer() } }}
+            placeholder="Player name or tag…"
             disabled={slotsLeft <= 0}
+            className="flex-1 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent disabled:opacity-50"
           />
-          {(searchResults.length > 0 || searching) && (
-            <div className="absolute z-10 mt-1 w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-lg overflow-hidden">
-              {searching && (
-                <div className="px-4 py-2 text-sm text-gray-400">Searching…</div>
-              )}
-              {!searching && searchResults.map((u) => (
-                <button
-                  key={u.id}
-                  type="button"
-                  onClick={() => addUser(u)}
-                  className="w-full flex items-center gap-3 px-4 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                >
-                  <div className="h-7 w-7 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-xs font-medium text-brand-700 dark:text-brand-300 shrink-0">
-                    {(u.display_name ?? u.username).charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                      {u.display_name ?? u.username}
-                    </p>
-                    <p className="text-xs text-gray-400">@{u.username}</p>
-                  </div>
-                </button>
-              ))}
-              {!searching && searchResults.length === 0 && searchQuery.length >= 2 && (
-                <div className="px-4 py-2 text-sm text-gray-400">No users found</div>
-              )}
-            </div>
-          )}
+          <Button type="button" variant="secondary" onClick={addPlayer} disabled={slotsLeft <= 0}>
+            Add
+          </Button>
         </div>
-
-        {invited.length > 0 && (
+        {players.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-1">
-            {invited.map((u) => (
+            {players.map((name) => (
               <span
-                key={u.id}
+                key={name}
                 className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm px-3 py-1"
               >
-                @{u.username}
+                {name}
                 <button
                   type="button"
-                  onClick={() => removeUser(u.id)}
+                  onClick={() => removePlayer(name)}
                   className="hover:text-brand-900 dark:hover:text-brand-100"
                 >
                   <X className="h-3 w-3" />

@@ -37,7 +37,8 @@ export interface Tournament {
 export interface Participant {
   id: string
   tournament_id: string
-  user_id: string
+  user_id: string | null
+  name: string | null
   seed: number | null
   joined_at: string
 }
@@ -60,6 +61,8 @@ export interface Match {
   player2_score: number | null
   winner_id: string | null
   status: MatchStatus
+  player1_name: string | null
+  player2_name: string | null
   screenshot_url: string | null
   submitted_by: string | null
   next_match_id: string | null
@@ -87,7 +90,7 @@ export interface TournamentWithOrganizer extends Tournament {
 }
 
 export interface ParticipantWithProfile extends Participant {
-  profiles: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>
+  profiles: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null
 }
 
 export interface MatchWithPlayers extends Match {
@@ -120,8 +123,8 @@ export type Database = {
       }
       participants: {
         Row: Participant
-        Insert: Omit<Participant, 'id' | 'joined_at' | 'seed'> &
-          Partial<Pick<Participant, 'id' | 'seed'>>
+        Insert: Omit<Participant, 'id' | 'joined_at' | 'seed' | 'user_id' | 'name'> &
+          Partial<Pick<Participant, 'id' | 'seed' | 'user_id' | 'name'>>
         Update: Partial<Omit<Participant, 'id' | 'joined_at'>>
       }
       rounds: {

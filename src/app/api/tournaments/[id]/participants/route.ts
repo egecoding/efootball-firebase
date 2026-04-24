@@ -24,8 +24,10 @@ export async function POST(
   if (tournament.status !== 'open')
     return NextResponse.json({ error: 'Tournament is not open' }, { status: 400 })
 
-  const { userId } = await request.json()
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+  const body = await request.json()
+  const name: string | undefined = body.name?.trim()
+
+  if (!name) return NextResponse.json({ error: 'Player name is required' }, { status: 400 })
 
   // Check capacity
   const { count } = await supabase
@@ -38,13 +40,9 @@ export async function POST(
 
   const { error } = await supabase
     .from('participants')
-    .insert({ tournament_id: params.id, user_id: userId })
+    .insert({ tournament_id: params.id, name, user_id: null })
 
-  if (error) {
-    if (error.code === '23505')
-      return NextResponse.json({ error: 'User is already a participant' }, { status: 409 })
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ success: true }, { status: 201 })
 }
@@ -57,7 +55,7 @@ export async function GET(
 
   const { data, error } = await supabase
     .from('participants')
-    .select('id, tournament_id, user_id, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses)')
+    .select('id, tournament_id, user_id, name, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses)')
     .eq('tournament_id', params.id)
     .order('joined_at', { ascending: true })
 
@@ -76,14 +74,23 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
-  const userId = searchParams.get('userId') ?? user.id
+  const participantId = searchParams.get('participantId')
+  const userId = searchParams.get('userId')
 
-  const { error } = await supabase
+  let query = supabase
     .from('participants')
     .delete()
     .eq('tournament_id', params.id)
-    .eq('user_id', userId)
 
+  if (participantId) {
+    // Guest removal by participant row id (organizer only)
+    query = query.eq('id', participantId)
+  } else {
+    // Registered user removal by user_id
+    query = query.eq('user_id', userId ?? user.id)
+  }
+
+  const { error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

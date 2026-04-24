@@ -87,6 +87,10 @@ function MatchCard({
 
   const p1Profile = match.player1_id ? profileMap[match.player1_id] : null
   const p2Profile = match.player2_id ? profileMap[match.player2_id] : null
+  // Guest players have no profile — fall back to player1_name/player2_name stored on the match
+  const m = match as typeof match & { player1_name?: string | null; player2_name?: string | null }
+  const p1Name = p1Profile ? (p1Profile.display_name ?? p1Profile.username) : (m.player1_name ?? null)
+  const p2Name = p2Profile ? (p2Profile.display_name ?? p2Profile.username) : (m.player2_name ?? null)
 
   return (
     <div
@@ -98,6 +102,7 @@ function MatchCard({
     >
       <PlayerSlot
         profile={p1Profile}
+        name={p1Name}
         score={match.player1_score}
         isWinner={!!match.winner_id && match.winner_id === match.player1_id}
         isCompleted={match.status === 'completed' || match.status === 'walkover'}
@@ -106,6 +111,7 @@ function MatchCard({
       <div className="h-px bg-gray-100 dark:bg-gray-800" />
       <PlayerSlot
         profile={p2Profile}
+        name={p2Name}
         score={match.player2_score}
         isWinner={!!match.winner_id && match.winner_id === match.player2_id}
         isCompleted={match.status === 'completed' || match.status === 'walkover'}
@@ -129,20 +135,20 @@ function MatchCard({
 
 function PlayerSlot({
   profile,
+  name: nameProp,
   score,
   isWinner,
   isCompleted,
   isCurrentUser,
 }: {
   profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null
+  name: string | null
   score: number | null
   isWinner: boolean
   isCompleted: boolean
   isCurrentUser: boolean
 }) {
-  const name = profile
-    ? profile.display_name ?? profile.username
-    : null
+  const name = nameProp
 
   return (
     <div

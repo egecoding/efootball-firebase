@@ -116,11 +116,16 @@ CREATE TRIGGER tournaments_updated_at
 CREATE TABLE IF NOT EXISTS public.participants (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
-  user_id        UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  user_id        UUID REFERENCES public.profiles(id) ON DELETE CASCADE,  -- NULL for guest/offline players
+  name           TEXT,                                                     -- display name for guests
   seed           INTEGER,
   joined_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(tournament_id, user_id)
+  CONSTRAINT participants_has_identity CHECK (user_id IS NOT NULL OR name IS NOT NULL)
 );
+
+-- Unique per registered user per tournament (guests have NULL user_id so no unique conflict)
+CREATE UNIQUE INDEX IF NOT EXISTS participants_tournament_user_unique
+  ON public.participants(tournament_id, user_id) WHERE user_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_participants_tournament ON public.participants(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_participants_user       ON public.participants(user_id);
@@ -160,6 +165,8 @@ CREATE TABLE IF NOT EXISTS public.matches (
   player2_score    INTEGER,
   winner_id        UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   status           public.match_status NOT NULL DEFAULT 'pending',
+  player1_name     TEXT,  -- display name for guest player 1 (when player1_id is NULL)
+  player2_name     TEXT,  -- display name for guest player 2 (when player2_id is NULL)
   screenshot_url   TEXT,
   submitted_by     UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   next_match_id    UUID REFERENCES public.matches(id) ON DELETE SET NULL,

@@ -1,8 +1,15 @@
+export interface BracketParticipant {
+  id: string | null   // user_id for registered users, null for guests
+  name: string | null // display name for guests
+}
+
 export interface MatchNode {
   matchNumber: number
   roundNumber: number
   player1Id: string | null
+  player1Name: string | null
   player2Id: string | null
+  player2Name: string | null
   nextMatchNumber: number | null
   nextMatchSlot: 1 | 2 | null
 }
@@ -18,15 +25,15 @@ export interface MatchNode {
  * 4. Wire next_match_id and next_match_slot between rounds.
  */
 export function generateBracket(
-  participantIds: string[],
+  participants: BracketParticipant[],
   shuffleSeeds = true
 ): MatchNode[] {
-  if (participantIds.length < 2) {
+  if (participants.length < 2) {
     throw new Error('Need at least 2 participants to generate a bracket')
   }
 
   // 1. Shuffle
-  const seeded = [...participantIds]
+  const seeded = [...participants]
   if (shuffleSeeds) {
     for (let i = seeded.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
@@ -34,14 +41,14 @@ export function generateBracket(
     }
   }
 
-  // 2. Pad to next power of 2
+  // 2. Pad to next power of 2 with bye slots
   const size = nextPowerOf2(seeded.length)
-  while (seeded.length < size) seeded.push(null as unknown as string)
+  while (seeded.length < size) seeded.push({ id: null, name: null })
 
   // 3. Build seed positions
   const positions = buildSeedPositions(size)
   const slottedPlayers = positions.map((pos) =>
-    pos <= seeded.length ? seeded[pos - 1] : null
+    pos <= seeded.length ? seeded[pos - 1] : { id: null, name: null }
   )
 
   const totalRounds = Math.log2(size)
@@ -58,7 +65,9 @@ export function generateBracket(
         matchNumber: globalMatchNumber++,
         roundNumber: round,
         player1Id: null,
+        player1Name: null,
         player2Id: null,
+        player2Name: null,
         nextMatchNumber: null,
         nextMatchSlot: null,
       })
@@ -69,8 +78,12 @@ export function generateBracket(
   // Assign first-round players
   const firstRound = roundMatches[0]
   for (let i = 0; i < firstRound.length; i++) {
-    firstRound[i].player1Id = slottedPlayers[i * 2] ?? null
-    firstRound[i].player2Id = slottedPlayers[i * 2 + 1] ?? null
+    const p1 = slottedPlayers[i * 2]
+    const p2 = slottedPlayers[i * 2 + 1]
+    firstRound[i].player1Id = p1?.id ?? null
+    firstRound[i].player1Name = p1?.name ?? null
+    firstRound[i].player2Id = p2?.id ?? null
+    firstRound[i].player2Name = p2?.name ?? null
   }
 
   // 4. Wire next_match links

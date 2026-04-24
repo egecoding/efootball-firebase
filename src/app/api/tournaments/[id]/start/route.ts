@@ -30,10 +30,10 @@ export async function POST(
     )
   }
 
-  // Fetch participants
+  // Fetch participants (include name for guests)
   const { data: participants } = await supabase
     .from('participants')
-    .select('user_id')
+    .select('id, user_id, name')
     .eq('tournament_id', params.id)
 
   if (!participants || participants.length < 2) {
@@ -43,14 +43,17 @@ export async function POST(
     )
   }
 
-  const participantIds = participants.map((p) => p.user_id)
-  const matches = generateBracket(participantIds)
+  const bracketParticipants = participants.map((p) => ({
+    id: p.user_id ?? null,
+    name: p.name ?? null,
+    participantId: p.id,
+  }))
+
+  const matches = generateBracket(bracketParticipants)
   const totalRounds = Math.max(...matches.map((m) => m.roundNumber))
 
   // Insert rounds
-  const roundsPayload = Array.from(
-    new Set(matches.map((m) => m.roundNumber))
-  )
+  const roundsPayload = Array.from(new Set(matches.map((m) => m.roundNumber)))
     .sort((a, b) => a - b)
     .map((rn) => ({
       tournament_id: params.id,
@@ -75,9 +78,14 @@ export async function POST(
     round_id: roundMap.get(m.roundNumber)!,
     match_number: m.matchNumber,
     player1_id: m.player1Id,
+    player1_name: m.player1Name,
     player2_id: m.player2Id,
+    player2_name: m.player2Name,
     next_match_slot: m.nextMatchSlot,
-    status: determineStatus(m.player1Id, m.player2Id),
+    status: determineStatus(
+      m.player1Id !== null || m.player1Name !== null,
+      m.player2Id !== null || m.player2Name !== null
+    ),
   }))
 
   const { data: insertedMatches, error: matchesError } = await supabase
@@ -106,23 +114,28 @@ export async function POST(
 
   // Handle byes: auto-advance players vs null opponents
   for (const match of insertedMatches) {
-    const hasBye =
-      (match.player1_id && !match.player2_id) ||
-      (!match.player1_id && match.player2_id)
+    const hasP1 = match.player1_id !== null || (match as { player1_name?: string | null }).player1_name !== null
+    const hasP2 = match.player2_id !== null || (match as { player1_name?: string | null; player2_name?: string | null }).player2_name !== null
+
+    const hasBye = (hasP1 && !hasP2) || (!hasP1 && hasP2)
 
     if (hasBye) {
-      const winner_id = match.player1_id ?? match.player2_id
+      const winner_id = hasP1 ? match.player1_id : match.player2_id
+      const winner_name = hasP1
+        ? (match as { player1_name?: string | null }).player1_name
+        : (match as { player2_name?: string | null }).player2_name
+
       await supabase
         .from('matches')
         .update({ winner_id, status: 'walkover' })
         .eq('id', match.id)
 
       if (match.next_match_id && match.next_match_slot) {
-        const field =
-          match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+        const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+        const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
         await supabase
           .from('matches')
-          .update({ [field]: winner_id, status: 'scheduled' })
+          .update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' })
           .eq('id', match.next_match_id)
       }
     }
@@ -134,11 +147,11 @@ export async function POST(
     .update({ status: 'in_progress' })
     .eq('id', params.id)
 
-  for (let i = 0; i < participantIds.length; i++) {
+  for (let i = 0; i < bracketParticipants.length; i++) {
     await supabase
       .from('participants')
       .update({ seed: i + 1 })
-      .match({ tournament_id: params.id, user_id: participantIds[i] })
+      .eq('id', bracketParticipants[i].participantId)
   }
 
   return NextResponse.json({
@@ -149,10 +162,10 @@ export async function POST(
 }
 
 function determineStatus(
-  p1: string | null,
-  p2: string | null
+  hasP1: boolean,
+  hasP2: boolean
 ): 'pending' | 'scheduled' | 'walkover' {
-  if (!p1 && !p2) return 'pending'
-  if (!p1 || !p2) return 'walkover'
+  if (!hasP1 && !hasP2) return 'pending'
+  if (!hasP1 || !hasP2) return 'walkover'
   return 'scheduled'
 }
