@@ -26,7 +26,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
     supabase
       .from('participants')
       .select(
-        'id, tournament_id, user_id, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
+        'id, tournament_id, user_id, name, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
       )
       .eq('tournament_id', params.id)
       .order('joined_at', { ascending: true }),
