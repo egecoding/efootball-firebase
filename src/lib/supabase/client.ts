@@ -9,10 +9,9 @@ export function createClient() {
   )
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _client: any
+let _client: ReturnType<typeof createClient> | undefined
 
-export function getClient() {
+export function getClient(): ReturnType<typeof createClient> {
   if (!_client) _client = createClient()
   return _client
 }

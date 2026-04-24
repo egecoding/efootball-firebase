@@ -98,15 +98,15 @@ export function TournamentForm() {
     const inviteLink = `${typeof window !== 'undefined' ? window.location.origin : ''}/tournaments/${created.id}/join?code=${created.invite_code}`
     const shareText = `Join "${created.title}"! Tap the link to register: ${inviteLink}`
 
-    async function copyLink() {
+    const copyLink = async () => {
       await navigator.clipboard.writeText(inviteLink)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 2000)
     }
-    function shareWhatsApp() {
+    const shareWhatsApp = () => {
       window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank')
     }
-    async function shareNative() {
+    const shareNative = async () => {
       if (navigator.share) {
         try { await navigator.share({ title: created!.title, url: inviteLink }) } catch { /* cancelled */ }
       } else {
