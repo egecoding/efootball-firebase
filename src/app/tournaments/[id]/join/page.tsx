@@ -23,9 +23,10 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
-    getClient().auth.getUser().then((res) => {
-      setIsGuest(!res.data.user)
-    })
+    ;(async () => {
+      const { data: { user } } = await getClient().auth.getUser()
+      setIsGuest(!user)
+    })()
   }, [])
 
   async function handleJoin(e: React.FormEvent) {
