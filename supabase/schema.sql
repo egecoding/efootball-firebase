@@ -317,6 +317,23 @@ CREATE POLICY "participants_insert_self"
     )
   );
 
+-- Organizer can add any user as participant
+DROP POLICY IF EXISTS "participants_insert_organizer" ON public.participants;
+CREATE POLICY "participants_insert_organizer"
+  ON public.participants FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.tournaments t
+      WHERE t.id = tournament_id
+        AND t.organizer_id = auth.uid()
+        AND t.status = 'open'
+        AND (
+          SELECT COUNT(*) FROM public.participants p
+          WHERE p.tournament_id = t.id
+        ) < t.max_participants
+    )
+  );
+
 DROP POLICY IF EXISTS "participants_delete_self_or_organizer" ON public.participants;
 CREATE POLICY "participants_delete_self_or_organizer"
   ON public.participants FOR DELETE
