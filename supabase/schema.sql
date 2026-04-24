@@ -76,12 +76,10 @@ $$;
 -- ============================================================
 -- TOURNAMENTS
 -- ============================================================
-CREATE TYPE public.tournament_status AS ENUM (
-  'draft',
-  'open',
-  'in_progress',
-  'completed'
-);
+DO $$ BEGIN
+  CREATE TYPE public.tournament_status AS ENUM ('draft', 'open', 'in_progress', 'completed');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.tournaments (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -90,6 +88,7 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   description       TEXT,
   game_name         TEXT NOT NULL DEFAULT 'eFootball',
   max_participants  INTEGER NOT NULL DEFAULT 8 CHECK (max_participants IN (4, 8, 16, 32)),
+  format            TEXT NOT NULL DEFAULT 'knockout' CHECK (format IN ('knockout', 'round_robin', 'league')),
   status            public.tournament_status NOT NULL DEFAULT 'open',
   invite_code       TEXT UNIQUE NOT NULL DEFAULT upper(substring(encode(gen_random_bytes(6), 'base64'), 1, 8)),
   is_public         BOOLEAN NOT NULL DEFAULT true,
@@ -97,6 +96,11 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: add format column to existing databases
+ALTER TABLE public.tournaments
+  ADD COLUMN IF NOT EXISTS format TEXT NOT NULL DEFAULT 'knockout'
+    CHECK (format IN ('knockout', 'round_robin', 'league'));
 
 CREATE INDEX IF NOT EXISTS idx_tournaments_organizer   ON public.tournaments(organizer_id);
 CREATE INDEX IF NOT EXISTS idx_tournaments_status      ON public.tournaments(status);
@@ -146,13 +150,10 @@ CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON public.rounds(tournament_id)
 -- ============================================================
 -- MATCHES
 -- ============================================================
-CREATE TYPE public.match_status AS ENUM (
-  'pending',
-  'scheduled',
-  'awaiting_confirmation',
-  'completed',
-  'walkover'
-);
+DO $$ BEGIN
+  CREATE TYPE public.match_status AS ENUM ('pending', 'scheduled', 'awaiting_confirmation', 'completed', 'walkover');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 CREATE TABLE IF NOT EXISTS public.matches (
   id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -333,6 +334,24 @@ CREATE POLICY "participants_insert_organizer"
       SELECT 1 FROM public.tournaments t
       WHERE t.id = tournament_id
         AND t.organizer_id = auth.uid()
+        AND t.status = 'open'
+        AND (
+          SELECT COUNT(*) FROM public.participants p
+          WHERE p.tournament_id = t.id
+        ) < t.max_participants
+    )
+  );
+
+-- Anyone with a valid invite link can join as a guest (no account needed)
+DROP POLICY IF EXISTS "participants_insert_guest" ON public.participants;
+CREATE POLICY "participants_insert_guest"
+  ON public.participants FOR INSERT
+  WITH CHECK (
+    user_id IS NULL
+    AND name IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM public.tournaments t
+      WHERE t.id = tournament_id
         AND t.status = 'open'
         AND (
           SELECT COUNT(*) FROM public.participants p

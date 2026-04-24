@@ -9,13 +9,20 @@ export async function POST(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { invite_code } = body
+  const { invite_code, name } = body
 
   if (!invite_code) {
     return NextResponse.json({ error: 'Invite code is required' }, { status: 400 })
+  }
+
+  // Guest join requires a nametag
+  if (!user) {
+    const trimmedName = typeof name === 'string' ? name.trim() : ''
+    if (!trimmedName) {
+      return NextResponse.json({ error: 'Nametag is required to join as a guest' }, { status: 400 })
+    }
   }
 
   // Fetch tournament
@@ -50,9 +57,13 @@ export async function POST(
     return NextResponse.json({ error: 'Tournament is full' }, { status: 409 })
   }
 
+  const participant = user
+    ? { tournament_id: params.id, user_id: user.id }
+    : { tournament_id: params.id, user_id: null, name: (name as string).trim() }
+
   const { error: joinError } = await supabase
     .from('participants')
-    .insert({ tournament_id: params.id, user_id: user.id })
+    .insert(participant)
 
   if (joinError) {
     if (joinError.code === '23505') {

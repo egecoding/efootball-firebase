@@ -222,15 +222,25 @@ export function TournamentForm() {
         placeholder="eFootball"
       />
 
-      <Input
-        label="Max participants"
-        type="number"
-        min={2}
-        max={128}
-        required
-        value={form.max_participants}
-        onChange={(e) => update('max_participants', Math.max(2, parseInt(e.target.value) || 2))}
-      />
+      <div className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Max participants</label>
+        <div className="grid grid-cols-4 gap-2">
+          {[4, 8, 16, 32].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => update('max_participants', n)}
+              className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                form.max_participants === n
+                  ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300'
+                  : 'border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white hover:border-gray-300 dark:hover:border-gray-600'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <Input
         label="Start date (optional)"

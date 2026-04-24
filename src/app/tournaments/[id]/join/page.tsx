@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Trophy } from 'lucide-react'
 import { normalizeInviteCode } from '@/lib/utils/invite'
+import { getClient } from '@/lib/supabase/client'
 
 interface PageProps {
   params: { id: string }
@@ -15,28 +16,35 @@ interface PageProps {
 export default function JoinTournamentPage({ params, searchParams }: PageProps) {
   const router = useRouter()
   const [code, setCode] = useState(searchParams.code ?? '')
+  const [nametag, setNametag] = useState('')
+  const [isGuest, setIsGuest] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+
+  useEffect(() => {
+    getClient().auth.getUser().then(({ data }) => {
+      setIsGuest(!data.user)
+    })
+  }, [])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
 
+    const body: Record<string, string> = { invite_code: normalizeInviteCode(code) }
+    if (isGuest) body.name = nametag
+
     const res = await fetch(`/api/tournaments/${params.id}/join`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ invite_code: normalizeInviteCode(code) }),
+      body: JSON.stringify(body),
     })
 
     const data = await res.json()
 
     if (!res.ok) {
-      if (res.status === 401) {
-        router.push(`/auth/login?redirectTo=/tournaments/${params.id}/join?code=${code}`)
-        return
-      }
       setError(data.error)
       setLoading(false)
       return
@@ -54,7 +62,9 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
         </div>
         <h1 className="section-title mb-2">Join Tournament</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          Enter the invite code to join this tournament.
+          {isGuest
+            ? 'Enter the invite code and your nametag to join.'
+            : 'Enter the invite code to join this tournament.'}
         </p>
 
         {success ? (
@@ -71,6 +81,15 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
               placeholder="XXXXXXXX"
               className="text-center text-lg tracking-widest font-mono"
             />
+            {isGuest && (
+              <Input
+                label="Your Nametag"
+                required
+                value={nametag}
+                onChange={(e) => setNametag(e.target.value)}
+                placeholder="e.g. PhilEFC"
+              />
+            )}
             {error && (
               <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
                 {error}
