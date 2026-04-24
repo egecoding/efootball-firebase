@@ -20,7 +20,7 @@ export default async function MatchPage({ params }: PageProps) {
   const { data: match } = await supabase
     .from('matches')
     .select(
-      'id, tournament_id, round_id, match_number, player1_id, player2_id, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
+      'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
     )
     .eq('id', params.id)
     .single()
@@ -28,7 +28,7 @@ export default async function MatchPage({ params }: PageProps) {
   if (!match) notFound()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const typedMatch = match as any as Match
+  const typedMatch = match as any as Match & { player1_name?: string | null; player2_name?: string | null }
 
   const playerIds = [typedMatch.player1_id, typedMatch.player2_id].filter(
     (id): id is string => id !== null
@@ -49,12 +49,26 @@ export default async function MatchPage({ params }: PageProps) {
   const p1 = typedMatch.player1_id ? profileMap[typedMatch.player1_id] ?? null : null
   const p2 = typedMatch.player2_id ? profileMap[typedMatch.player2_id] ?? null : null
 
+  // Resolve display names (registered user profile takes priority over guest name)
+  const p1DisplayName = p1?.display_name ?? p1?.username ?? typedMatch.player1_name ?? 'Player 1'
+  const p2DisplayName = p2?.display_name ?? p2?.username ?? typedMatch.player2_name ?? 'Player 2'
+
+  const { data: tournament } = await supabase
+    .from('tournaments')
+    .select('title, id, organizer_id')
+    .eq('id', typedMatch.tournament_id)
+    .single()
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tournamentData = tournament as any
+
+  const isOrganizer = user?.id === tournamentData?.organizer_id
   const isPlayer =
     user &&
     (typedMatch.player1_id === user.id || typedMatch.player2_id === user.id)
 
   const canSubmit =
-    isPlayer &&
+    (isPlayer || isOrganizer) &&
     (typedMatch.status === 'scheduled' || typedMatch.status === 'awaiting_confirmation')
 
   const { data: round } = await supabase
@@ -63,16 +77,12 @@ export default async function MatchPage({ params }: PageProps) {
     .eq('id', typedMatch.round_id)
     .single()
 
-  const { data: tournament } = await supabase
-    .from('tournaments')
-    .select('title, id')
-    .eq('id', typedMatch.tournament_id)
-    .single()
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const roundData = round as any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tournamentData = tournament as any
+
+  // Build profile-like objects for ResultForm that include guest names
+  const p1ForForm = p1 ?? (typedMatch.player1_name ? { id: '', username: typedMatch.player1_name, display_name: typedMatch.player1_name } : null)
+  const p2ForForm = p2 ?? (typedMatch.player2_name ? { id: '', username: typedMatch.player2_name, display_name: typedMatch.player2_name } : null)
 
   return (
     <div className="page-container">
@@ -104,22 +114,28 @@ export default async function MatchPage({ params }: PageProps) {
             <div className="flex items-center justify-center gap-6 mb-8">
               <PlayerDisplay
                 profile={p1}
+                name={p1DisplayName}
                 score={typedMatch.player1_score}
                 isWinner={typedMatch.winner_id === typedMatch.player1_id}
                 isCompleted={typedMatch.status === 'completed'}
               />
-              <div className="text-2xl font-bold text-gray-400 dark:text-gray-600">
-                vs
-              </div>
+              <div className="text-2xl font-bold text-gray-400 dark:text-gray-600">vs</div>
               <PlayerDisplay
                 profile={p2}
+                name={p2DisplayName}
                 score={typedMatch.player2_score}
                 isWinner={typedMatch.winner_id === typedMatch.player2_id}
                 isCompleted={typedMatch.status === 'completed'}
               />
             </div>
 
-            {typedMatch.status === 'awaiting_confirmation' && (
+            {isOrganizer && !isPlayer && canSubmit && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-400 mb-6 text-center">
+                Submitting as organizer — result will be applied immediately.
+              </div>
+            )}
+
+            {typedMatch.status === 'awaiting_confirmation' && isPlayer && (
               <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 mb-6 text-center">
                 Waiting for the other player to confirm the score.
               </div>
@@ -135,8 +151,8 @@ export default async function MatchPage({ params }: PageProps) {
               <ResultForm
                 match={typedMatch as unknown as MatchWithPlayers}
                 currentUserId={user.id}
-                player1Profile={p1}
-                player2Profile={p2}
+                player1Profile={p1ForForm}
+                player2Profile={p2ForForm}
               />
             ) : !user ? (
               <p className="text-center text-sm text-gray-500 dark:text-gray-400">
@@ -158,17 +174,17 @@ export default async function MatchPage({ params }: PageProps) {
 
 function PlayerDisplay({
   profile,
+  name,
   score,
   isWinner,
   isCompleted,
 }: {
   profile: Profile | null
+  name: string
   score: number | null
   isWinner: boolean
   isCompleted: boolean
 }) {
-  const name = profile?.display_name ?? profile?.username ?? 'TBD'
-
   return (
     <div
       className={`flex flex-col items-center gap-2 flex-1 ${
@@ -182,9 +198,7 @@ function PlayerDisplay({
       {score !== null && (
         <p
           className={`text-3xl font-extrabold tabular-nums ${
-            isWinner
-              ? 'text-brand-500'
-              : 'text-gray-400 dark:text-gray-600'
+            isWinner ? 'text-brand-500' : 'text-gray-400 dark:text-gray-600'
           }`}
         >
           {score}

@@ -49,7 +49,7 @@ export async function PATCH(
   const { data: match } = await supabase
     .from('matches')
     .select(
-      'id, player1_id, player2_id, status, next_match_id, next_match_slot, tournament_id'
+      'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id'
     )
     .eq('id', params.id)
     .single()
@@ -155,7 +155,9 @@ async function finalizeMatch(
   match: {
     id: string
     player1_id: string | null
+    player1_name?: string | null
     player2_id: string | null
+    player2_name?: string | null
     next_match_id: string | null
     next_match_slot: number | null
     tournament_id: string
@@ -191,13 +193,14 @@ async function finalizeMatch(
     await supabase.rpc('increment_losses', { uid: loser_id })
   }
 
-  // Advance winner to next match
-  if (match.next_match_id && match.next_match_slot && winner_id) {
-    const field =
-      match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+  // Advance winner to next match (handle guest players too)
+  if (match.next_match_id && match.next_match_slot) {
+    const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+    const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
+    const winnerName = player1_score > player2_score ? match.player1_name : match.player2_name
     await supabase
       .from('matches')
-      .update({ [field]: winner_id, status: 'scheduled' })
+      .update({ [idField]: winner_id ?? null, [nameField]: winnerName ?? null, status: 'scheduled' })
       .eq('id', match.next_match_id)
   } else if (!match.next_match_id) {
     // No next match = this was the final
