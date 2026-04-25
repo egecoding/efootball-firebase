@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Trophy, Swords } from 'lucide-react'
+import { Plus, Trophy, Swords, TrendingUp } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
 import { Button } from '@/components/ui/Button'
@@ -12,7 +12,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: myTournaments }, { data: joined }, { data: myMatches }] = await Promise.all([
+  const [{ data: myTournaments }, { data: joined }, { data: myMatches }, { data: profile }] = await Promise.all([
     supabase
       .from('tournaments')
       .select(
@@ -36,6 +36,11 @@ export default async function DashboardPage() {
       .in('status', ['scheduled', 'awaiting_confirmation'])
       .order('created_at', { ascending: true })
       .limit(20),
+    supabase
+      .from('profiles')
+      .select('wins, losses')
+      .eq('id', user!.id)
+      .single(),
   ])
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -56,9 +61,14 @@ export default async function DashboardPage() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedMyMatches = (myMatches ?? []) as unknown as any[]
 
+  const wins = profile?.wins ?? 0
+  const losses = profile?.losses ?? 0
+  const total = wins + losses
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : null
+
   return (
     <div className="page-container">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <h1 className="section-title">Dashboard</h1>
         <Link href="/tournaments/new">
           <Button>
@@ -66,6 +76,34 @@ export default async function DashboardPage() {
             New Tournament
           </Button>
         </Link>
+      </div>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
+          <p className="text-2xl font-extrabold text-brand-500">{wins}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wins</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
+          <p className="text-2xl font-extrabold text-red-500">{losses}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Losses</p>
+        </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
+          {winRate !== null ? (
+            <>
+              <p className="text-2xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center gap-1">
+                <TrendingUp className="h-5 w-5 text-brand-500" />
+                {winRate}%
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Win rate</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-extrabold text-gray-400">—</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Win rate</p>
+            </>
+          )}
+        </div>
       </div>
 
       {/* My Matches */}

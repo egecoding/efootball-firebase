@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Crown } from 'lucide-react'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import type { RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
@@ -17,12 +18,13 @@ export function BracketView({ rounds, currentUserId, organizerId, profileMap = {
 
   return (
     <div className="overflow-x-auto pb-4">
-      <div className="flex gap-6 min-w-max" style={{ alignItems: 'flex-start' }}>
-        {rounds.map((round) => (
+      <div className="flex gap-4 min-w-max" style={{ alignItems: 'flex-start' }}>
+        {rounds.map((round, idx) => (
           <RoundColumn
             key={round.id}
             round={round}
             totalRounds={rounds.length}
+            isFinal={idx === rounds.length - 1}
             currentUserId={currentUserId}
             organizerId={organizerId}
             profileMap={profileMap}
@@ -36,12 +38,14 @@ export function BracketView({ rounds, currentUserId, organizerId, profileMap = {
 function RoundColumn({
   round,
   totalRounds,
+  isFinal,
   currentUserId,
   organizerId,
   profileMap,
 }: {
   round: RoundWithMatches
   totalRounds: number
+  isFinal: boolean
   currentUserId?: string
   organizerId?: string
   profileMap: Record<string, Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>>
@@ -55,7 +59,10 @@ function RoundColumn({
 
   return (
     <div className="flex flex-col" style={{ gap: `${gap}px`, minWidth: '220px' }}>
-      <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 text-center">
+      <div className={`text-xs font-semibold uppercase tracking-wider mb-2 text-center ${
+        isFinal ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'
+      }`}>
+        {isFinal && <span className="mr-1">🏆</span>}
         {round.round_name}
       </div>
       {sortedMatches.map((match) => (
@@ -64,7 +71,7 @@ function RoundColumn({
           match={match as unknown as MatchWithPlayers}
           currentUserId={currentUserId}
           organizerId={organizerId}
-          isFinal={round.round_number === totalRounds}
+          isFinal={isFinal}
           profileMap={profileMap}
         />
       ))}
@@ -95,18 +102,17 @@ function MatchCard({
 
   const p1Profile = match.player1_id ? profileMap[match.player1_id] : null
   const p2Profile = match.player2_id ? profileMap[match.player2_id] : null
-  // Guest players have no profile — fall back to player1_name/player2_name stored on the match
   const m = match as typeof match & { player1_name?: string | null; player2_name?: string | null }
   const p1Name = p1Profile ? (p1Profile.display_name ?? p1Profile.username) : (m.player1_name ?? null)
   const p2Name = p2Profile ? (p2Profile.display_name ?? p2Profile.username) : (m.player2_name ?? null)
 
-  return (
+  const card = (
     <div
       className={`rounded-lg border bg-white dark:bg-gray-900 overflow-hidden shadow-sm transition-all ${
         isFinal
-          ? 'border-brand-400/50 dark:border-brand-500/50'
+          ? 'border-yellow-400/60 dark:border-yellow-500/40 shadow-yellow-500/10 shadow-md'
           : 'border-gray-200 dark:border-gray-800'
-      } ${isSubmittable ? 'ring-2 ring-brand-500/50' : ''}`}
+      } ${isSubmittable ? 'animate-pulse-ring cursor-pointer hover:border-brand-400 dark:hover:border-brand-600' : ''}`}
     >
       <PlayerSlot
         profile={p1Profile}
@@ -115,6 +121,7 @@ function MatchCard({
         isWinner={!!match.winner_id && match.winner_id === match.player1_id}
         isCompleted={match.status === 'completed' || match.status === 'walkover'}
         isCurrentUser={currentUserId === match.player1_id}
+        showCrown={isFinal && !!match.winner_id && match.winner_id === match.player1_id}
       />
       <div className="h-px bg-gray-100 dark:bg-gray-800" />
       <PlayerSlot
@@ -124,21 +131,22 @@ function MatchCard({
         isWinner={!!match.winner_id && match.winner_id === match.player2_id}
         isCompleted={match.status === 'completed' || match.status === 'walkover'}
         isCurrentUser={currentUserId === match.player2_id}
+        showCrown={isFinal && !!match.winner_id && match.winner_id === match.player2_id}
       />
 
       <div className="flex items-center justify-between px-3 py-1.5 bg-gray-50 dark:bg-gray-950/50 border-t border-gray-100 dark:border-gray-800">
         <MatchStatusBadge status={match.status} />
         {isSubmittable && (
-          <Link
-            href={`/matches/${match.id}`}
-            className="text-xs text-brand-500 hover:text-brand-600 font-medium"
-          >
-            Submit →
-          </Link>
+          <span className="text-xs text-brand-500 font-semibold">Submit →</span>
         )}
       </div>
     </div>
   )
+
+  if (isSubmittable) {
+    return <Link href={`/matches/${match.id}`}>{card}</Link>
+  }
+  return card
 }
 
 function PlayerSlot({
@@ -148,6 +156,7 @@ function PlayerSlot({
   isWinner,
   isCompleted,
   isCurrentUser,
+  showCrown,
 }: {
   profile: Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'> | null
   name: string | null
@@ -155,12 +164,13 @@ function PlayerSlot({
   isWinner: boolean
   isCompleted: boolean
   isCurrentUser: boolean
+  showCrown: boolean
 }) {
   const name = nameProp
 
   return (
     <div
-      className={`flex items-center gap-2 px-3 py-2 ${
+      className={`flex items-center gap-2 px-3 py-2 transition-colors ${
         isWinner
           ? 'bg-brand-50 dark:bg-brand-900/20'
           : isCompleted && !isWinner && name
@@ -180,6 +190,9 @@ function PlayerSlot({
       >
         {name ?? 'TBD'}
       </span>
+      {showCrown && (
+        <Crown className="h-3.5 w-3.5 text-yellow-500 shrink-0 fill-yellow-400" />
+      )}
       {score !== null && (
         <span
           className={`text-sm font-bold tabular-nums ${

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Trophy } from 'lucide-react'
 import { normalizeInviteCode } from '@/lib/utils/invite'
 import { getClient } from '@/lib/supabase/client'
 
@@ -52,54 +51,80 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
     }
 
     setSuccess(true)
-    setTimeout(() => router.push(`/tournaments/${params.id}`), 1500)
+    setTimeout(() => router.push(`/tournaments/${params.id}`), 2200)
   }
 
   return (
-    <div className="page-container">
-      <div className="max-w-sm mx-auto text-center">
-        <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 mb-6">
-          <Trophy className="h-7 w-7 text-brand-500" />
-        </div>
-        <h1 className="section-title mb-2">Join Tournament</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
-          {isGuest
-            ? 'Enter the invite code and your nametag to join.'
-            : 'Enter the invite code to join this tournament.'}
-        </p>
+    <div className="min-h-[calc(100vh-56px)] flex items-center justify-center px-4 py-12">
+      <div className="fixed inset-0 dot-grid text-gray-400/10 dark:text-white/[0.025] pointer-events-none" />
 
+      <div className="relative w-full max-w-sm">
         {success ? (
-          <div className="rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-6 py-5 text-green-700 dark:text-green-400 font-medium">
-            Joined! Redirecting…
+          <div className="text-center animate-bounce-in">
+            <div className="inline-flex items-center justify-center mb-6">
+              <svg viewBox="0 0 80 80" className="h-24 w-24" fill="none">
+                <circle
+                  cx="40" cy="40" r="36"
+                  stroke="#22c55e"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  className="animate-draw-circle"
+                />
+                <polyline
+                  points="22,40 34,52 58,28"
+                  stroke="#22c55e"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="animate-draw-check"
+                />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">You&apos;re in!</h2>
+            <p className="text-gray-500 dark:text-gray-400 text-sm">Taking you to the tournament…</p>
           </div>
         ) : (
-          <form onSubmit={handleJoin} className="flex flex-col gap-4">
-            <Input
-              label="Invite Code"
-              required
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              placeholder="XXXXXXXX"
-              className="text-center text-lg tracking-widest font-mono"
-            />
-            {isGuest && (
-              <Input
-                label="Your Nametag"
-                required
-                value={nametag}
-                onChange={(e) => setNametag(e.target.value)}
-                placeholder="e.g. PhilEFC"
-              />
-            )}
-            {error && (
-              <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
-                {error}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 mb-4">
+                <span className="text-2xl">🏆</span>
               </div>
-            )}
-            <Button type="submit" loading={loading} size="lg">
-              Join Tournament
-            </Button>
-          </form>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-1">Join Tournament</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {isGuest
+                  ? 'Enter the invite code and your nametag to join.'
+                  : 'Enter the invite code to join this tournament.'}
+              </p>
+            </div>
+
+            <form onSubmit={handleJoin} className="flex flex-col gap-4">
+              <Input
+                label="Invite Code"
+                required
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                placeholder="XXXXXXXX"
+                className="text-center text-lg tracking-widest font-mono"
+              />
+              {isGuest && (
+                <Input
+                  label="Your Nametag"
+                  required
+                  value={nametag}
+                  onChange={(e) => setNametag(e.target.value)}
+                  placeholder="e.g. PhilEFC"
+                />
+              )}
+              {error && (
+                <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 px-4 py-3 text-sm text-red-700 dark:text-red-400">
+                  {error}
+                </div>
+              )}
+              <Button type="submit" loading={loading} size="lg" className="mt-1">
+                Join Tournament
+              </Button>
+            </form>
+          </div>
         )}
       </div>
     </div>

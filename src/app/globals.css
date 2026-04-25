@@ -29,4 +29,39 @@
   .section-title {
     @apply text-2xl font-bold text-gray-900 dark:text-white;
   }
+
+  .gradient-text {
+    background: linear-gradient(135deg, #4ade80 0%, #34d399 50%, #4ade80 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .dot-grid {
+    background-image: radial-gradient(circle, currentColor 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@layer utilities {
+  /* SVG draw-in animations used on the join success screen */
+  .animate-draw-circle {
+    stroke-dasharray: 226;
+    stroke-dashoffset: 226;
+    animation: drawCircle 0.5s ease-out forwards;
+  }
+
+  .animate-draw-check {
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: drawCheck 0.35s ease-out 0.45s forwards;
+  }
+}
+
+@keyframes drawCircle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes drawCheck {
+  to { stroke-dashoffset: 0; }
 }
