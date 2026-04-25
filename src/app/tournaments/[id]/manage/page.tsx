@@ -7,6 +7,21 @@ interface PageProps {
   params: { id: string }
 }
 
+export type ManageMatch = {
+  id: string
+  match_number: number
+  player1_id: string | null
+  player1_name: string | null
+  player2_id: string | null
+  player2_name: string | null
+  player1_score: number | null
+  player2_score: number | null
+  status: string
+  screenshot_url: string | null
+  screenshotSignedUrl: string | null
+  round_name: string | null
+}
+
 export default async function ManageTournamentPage({ params }: PageProps) {
   const supabase = await createClient()
   const {
@@ -15,7 +30,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
 
   if (!user) redirect('/auth/login')
 
-  const [{ data: tournament }, { data: participants }] = await Promise.all([
+  const [{ data: tournament }, { data: participants }, { data: rawMatches }] = await Promise.all([
     supabase
       .from('tournaments')
       .select(
@@ -30,6 +45,12 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       )
       .eq('tournament_id', params.id)
       .order('joined_at', { ascending: true }),
+    supabase
+      .from('matches')
+      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, rounds(round_name)')
+      .eq('tournament_id', params.id)
+      .in('status', ['scheduled', 'awaiting_confirmation', 'completed'])
+      .order('created_at', { ascending: true }),
   ])
 
   if (!tournament) notFound()
@@ -41,6 +62,32 @@ export default async function ManageTournamentPage({ params }: PageProps) {
     redirect(`/tournaments/${params.id}`)
   }
 
+  // Generate signed URLs for screenshots
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const matches: ManageMatch[] = await Promise.all((rawMatches ?? []).map(async (m: any) => {
+    let screenshotSignedUrl: string | null = null
+    if (m.screenshot_url) {
+      const { data: signed } = await supabase.storage
+        .from('screenshots')
+        .createSignedUrl(m.screenshot_url, 60 * 60)
+      screenshotSignedUrl = signed?.signedUrl ?? null
+    }
+    return {
+      id: m.id,
+      match_number: m.match_number,
+      player1_id: m.player1_id,
+      player1_name: m.player1_name,
+      player2_id: m.player2_id,
+      player2_name: m.player2_name,
+      player1_score: m.player1_score,
+      player2_score: m.player2_score,
+      status: m.status,
+      screenshot_url: m.screenshot_url,
+      screenshotSignedUrl,
+      round_name: m.rounds?.round_name ?? null,
+    }
+  }))
+
   return (
     <div className="page-container">
       <div className="max-w-2xl mx-auto">
@@ -51,7 +98,13 @@ export default async function ManageTournamentPage({ params }: PageProps) {
         <ManagePanel
           tournament={typedTournament}
           participants={(participants as unknown as ParticipantWithProfile[]) ?? []}
-          baseUrl={process.env.NEXT_PUBLIC_APP_URL ?? ''}
+          matches={matches}
+          baseUrl={
+            process.env.NEXT_PUBLIC_APP_URL ??
+            (process.env.VERCEL_PROJECT_PRODUCTION_URL
+              ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+              : '')
+          }
         />
       </div>
     </div>

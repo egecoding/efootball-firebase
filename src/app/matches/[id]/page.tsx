@@ -71,6 +71,14 @@ export default async function MatchPage({ params }: PageProps) {
     (isPlayer || isOrganizer) &&
     (typedMatch.status === 'scheduled' || typedMatch.status === 'awaiting_confirmation')
 
+  let screenshotSignedUrl: string | null = null
+  if (typedMatch.screenshot_url && user) {
+    const { data: signed } = await supabase.storage
+      .from('screenshots')
+      .createSignedUrl(typedMatch.screenshot_url, 60 * 60)
+    screenshotSignedUrl = signed?.signedUrl ?? null
+  }
+
   const { data: round } = await supabase
     .from('rounds')
     .select('round_name')
@@ -128,6 +136,21 @@ export default async function MatchPage({ params }: PageProps) {
                 isCompleted={typedMatch.status === 'completed'}
               />
             </div>
+
+            {screenshotSignedUrl && (
+              <div className="mb-6">
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
+                  Match Screenshot
+                </p>
+                <a href={screenshotSignedUrl} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={screenshotSignedUrl}
+                    alt="Match screenshot"
+                    className="w-full rounded-lg border border-gray-200 dark:border-gray-800 object-contain max-h-64"
+                  />
+                </a>
+              </div>
+            )}
 
             {isOrganizer && !isPlayer && canSubmit && (
               <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-400 mb-6 text-center">

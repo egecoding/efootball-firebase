@@ -1,7 +1,11 @@
 import { TournamentForm } from '@/components/tournament/TournamentForm'
 
 export default function NewTournamentPage() {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : '')
   return (
     <div className="page-container">
       <div className="max-w-xl mx-auto">

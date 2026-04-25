@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { Plus, Trophy } from 'lucide-react'
+import { Plus, Trophy, Swords } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
 import { Button } from '@/components/ui/Button'
+import { MatchStatusBadge } from '@/components/ui/Badge'
 import type { TournamentWithOrganizer } from '@/types/database'
 
 export default async function DashboardPage() {
@@ -11,7 +12,7 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: myTournaments }, { data: joined }] = await Promise.all([
+  const [{ data: myTournaments }, { data: joined }, { data: myMatches }] = await Promise.all([
     supabase
       .from('tournaments')
       .select(
@@ -27,6 +28,13 @@ export default async function DashboardPage() {
       )
       .eq('user_id', user!.id)
       .order('joined_at', { ascending: false })
+      .limit(20),
+    supabase
+      .from('matches')
+      .select('id, tournament_id, match_number, player1_id, player1_name, player2_id, player2_name, status, tournaments(title)')
+      .or(`player1_id.eq.${user!.id},player2_id.eq.${user!.id}`)
+      .in('status', ['scheduled', 'awaiting_confirmation'])
+      .order('created_at', { ascending: true })
       .limit(20),
   ])
 
@@ -45,6 +53,8 @@ export default async function DashboardPage() {
     )
 
   const typedMyTournaments = (myTournaments ?? []) as unknown as TournamentWithOrganizer[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const typedMyMatches = (myMatches ?? []) as unknown as any[]
 
   return (
     <div className="page-container">
@@ -57,6 +67,40 @@ export default async function DashboardPage() {
           </Button>
         </Link>
       </div>
+
+      {/* My Matches */}
+      {typedMyMatches.length > 0 && (
+        <section className="mb-10">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <Swords className="h-4 w-4 text-brand-500" />
+            My Matches ({typedMyMatches.length})
+          </h2>
+          <div className="flex flex-col gap-2">
+            {typedMyMatches.map((m) => {
+              const isP1 = m.player1_id === user!.id
+              const opponentName = isP1
+                ? (m.player2_name ?? 'TBD')
+                : (m.player1_name ?? 'TBD')
+              const tournamentTitle = m.tournaments?.title ?? 'Tournament'
+              return (
+                <Link
+                  key={m.id}
+                  href={`/matches/${m.id}`}
+                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{tournamentTitle}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      Match #{m.match_number} · vs {opponentName}
+                    </p>
+                  </div>
+                  <MatchStatusBadge status={m.status} />
+                </Link>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* My Tournaments */}
       <section className="mb-10">

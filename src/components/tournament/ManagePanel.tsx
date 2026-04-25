@@ -2,20 +2,23 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, Play, Trash2, UserPlus } from 'lucide-react'
+import { Share2, Play, Trash2, UserPlus, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { InviteModal } from './InviteModal'
 import { ParticipantList } from './ParticipantList'
-import { TournamentStatusBadge } from '@/components/ui/Badge'
+import { TournamentStatusBadge, MatchStatusBadge } from '@/components/ui/Badge'
 import type { TournamentWithOrganizer, ParticipantWithProfile } from '@/types/database'
+import type { ManageMatch } from '@/app/tournaments/[id]/manage/page'
 
 interface ManagePanelProps {
   tournament: TournamentWithOrganizer
   participants: ParticipantWithProfile[]
+  matches: ManageMatch[]
   baseUrl: string
 }
 
-export function ManagePanel({ tournament, participants, baseUrl }: ManagePanelProps) {
+export function ManagePanel({ tournament, participants, matches, baseUrl }: ManagePanelProps) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [startLoading, setStartLoading] = useState(false)
@@ -71,6 +74,8 @@ export function ManagePanel({ tournament, participants, baseUrl }: ManagePanelPr
     router.push('/dashboard')
     router.refresh()
   }
+
+  const activeMatches = matches.filter((m) => m.status !== 'scheduled' || m.player1_id || m.player2_id)
 
   return (
     <div className="flex flex-col gap-6">
@@ -164,6 +169,64 @@ export function ManagePanel({ tournament, participants, baseUrl }: ManagePanelPr
           {addError && (
             <p className="text-sm text-red-600 dark:text-red-400">{addError}</p>
           )}
+        </div>
+      )}
+
+      {/* Match Results (in-progress / completed tournaments) */}
+      {tournament.status !== 'open' && activeMatches.length > 0 && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 flex flex-col gap-3">
+          <h2 className="font-semibold text-gray-900 dark:text-white">Match Results</h2>
+          <div className="flex flex-col gap-3">
+            {activeMatches.map((m) => {
+              const p1 = m.player1_name ?? 'TBD'
+              const p2 = m.player2_name ?? 'TBD'
+              const scoreText =
+                m.player1_score !== null && m.player2_score !== null
+                  ? `${m.player1_score} – ${m.player2_score}`
+                  : null
+
+              return (
+                <div
+                  key={m.id}
+                  className="rounded-lg border border-gray-100 dark:border-gray-800 p-3 flex flex-col gap-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      {m.round_name && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{m.round_name}</p>
+                      )}
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {p1} vs {p2}
+                        {scoreText && (
+                          <span className="ml-2 font-bold text-brand-500">{scoreText}</span>
+                        )}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <MatchStatusBadge status={m.status as 'pending' | 'scheduled' | 'awaiting_confirmation' | 'completed' | 'walkover'} />
+                      <Link
+                        href={`/matches/${m.id}`}
+                        className="text-gray-400 hover:text-brand-500 transition-colors"
+                        title="View match"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Link>
+                    </div>
+                  </div>
+
+                  {m.screenshotSignedUrl && (
+                    <a href={m.screenshotSignedUrl} target="_blank" rel="noopener noreferrer">
+                      <img
+                        src={m.screenshotSignedUrl}
+                        alt="Match screenshot"
+                        className="w-full rounded border border-gray-200 dark:border-gray-700 object-contain max-h-40"
+                      />
+                    </a>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
