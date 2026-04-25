@@ -11,12 +11,12 @@ interface InviteModalProps {
   inviteCode: string
   tournamentId: string
   tournamentTitle?: string
+  baseUrl: string
 }
 
-export function InviteModal({ open, onClose, inviteCode, tournamentId, tournamentTitle }: InviteModalProps) {
+export function InviteModal({ open, onClose, inviteCode, tournamentId, tournamentTitle, baseUrl }: InviteModalProps) {
   const [copied, setCopied] = useState<'code' | 'link' | null>(null)
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
   const inviteLink = baseUrl ? `${baseUrl}/tournaments/${tournamentId}/join?code=${inviteCode}` : ''
 
   const shareText = `Join ${tournamentTitle ? `"${tournamentTitle}"` : 'my tournament'}! Tap the link to register: ${inviteLink}`

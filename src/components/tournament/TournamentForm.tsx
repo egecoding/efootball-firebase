@@ -23,7 +23,7 @@ const FORMAT_OPTIONS: { value: TournamentFormat; label: string; desc: string }[]
   { value: 'league', label: 'League', desc: 'Everyone plays everyone. Points: 3W / 1D / 0L.' },
 ]
 
-export function TournamentForm() {
+export function TournamentForm({ baseUrl }: { baseUrl: string }) {
   const router = useRouter()
   const [form, setForm] = useState<TournamentFormData>({
     title: '',
@@ -95,7 +95,6 @@ export function TournamentForm() {
 
   // --- Share card shown after creation ---
   if (created) {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? (typeof window !== 'undefined' ? window.location.origin : '')
     const inviteLink = `${baseUrl}/tournaments/${created.id}/join?code=${created.invite_code}`
     const shareText = `Join "${created.title}"! Tap the link to register: ${inviteLink}`
 

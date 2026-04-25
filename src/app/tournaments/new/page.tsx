@@ -1,6 +1,7 @@
 import { TournamentForm } from '@/components/tournament/TournamentForm'
 
 export default function NewTournamentPage() {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''
   return (
     <div className="page-container">
       <div className="max-w-xl mx-auto">
@@ -10,7 +11,7 @@ export default function NewTournamentPage() {
             Set up your tournament. You&apos;ll get an invite link after creation.
           </p>
         </div>
-        <TournamentForm />
+        <TournamentForm baseUrl={baseUrl} />
       </div>
     </div>
   )

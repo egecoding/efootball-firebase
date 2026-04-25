@@ -51,6 +51,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
         <ManagePanel
           tournament={typedTournament}
           participants={(participants as unknown as ParticipantWithProfile[]) ?? []}
+          baseUrl={process.env.NEXT_PUBLIC_APP_URL ?? ''}
         />
       </div>
     </div>

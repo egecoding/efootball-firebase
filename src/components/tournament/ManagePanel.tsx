@@ -12,9 +12,10 @@ import type { TournamentWithOrganizer, ParticipantWithProfile } from '@/types/da
 interface ManagePanelProps {
   tournament: TournamentWithOrganizer
   participants: ParticipantWithProfile[]
+  baseUrl: string
 }
 
-export function ManagePanel({ tournament, participants }: ManagePanelProps) {
+export function ManagePanel({ tournament, participants, baseUrl }: ManagePanelProps) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [startLoading, setStartLoading] = useState(false)
@@ -185,6 +186,7 @@ export function ManagePanel({ tournament, participants }: ManagePanelProps) {
         inviteCode={tournament.invite_code}
         tournamentId={tournament.id}
         tournamentTitle={tournament.title}
+        baseUrl={baseUrl}
       />
     </div>
   )
