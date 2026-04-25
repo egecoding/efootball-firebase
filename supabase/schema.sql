@@ -217,6 +217,7 @@ GRANT SELECT                         ON public.tournaments        TO anon, authe
 GRANT INSERT, UPDATE, DELETE         ON public.tournaments        TO authenticated;
 
 GRANT SELECT                         ON public.participants       TO anon, authenticated;
+GRANT INSERT                         ON public.participants       TO anon;          -- guest join via invite link
 GRANT INSERT, DELETE                 ON public.participants       TO authenticated;
 
 GRANT SELECT                         ON public.rounds             TO anon, authenticated;
