@@ -127,11 +127,20 @@ export function ResultForm({
         </div>
       </div>
 
-      <ScreenshotUpload
-        matchId={match.id}
-        userId={currentUserId}
-        onUpload={setScreenshotPath}
-      />
+      {/* Screenshot — clearly labeled for organizer verification */}
+      <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
+        <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wider">
+          📸 Match Screenshot
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+          Upload a screenshot of the final scoreline. The organizer will see it on their dashboard for verification.
+        </p>
+        <ScreenshotUpload
+          matchId={match.id}
+          userId={currentUserId}
+          onUpload={setScreenshotPath}
+        />
+      </div>
 
       {message && (
         <div

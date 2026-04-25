@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Users, Calendar, Trophy, Settings } from 'lucide-react'
+import { Users, Calendar, Trophy, Settings, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
@@ -68,6 +68,34 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       }
     }
   }
+
+  // Find the logged-in player's active match (scheduled or awaiting confirmation)
+  type RawMatch = {
+    id: string
+    match_number: number
+    player1_id: string | null
+    player1_name: string | null
+    player2_id: string | null
+    player2_name: string | null
+    status: string
+  }
+  const allMatches: RawMatch[] = (rounds ?? []).flatMap(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (r: any) => (r.matches ?? []) as RawMatch[]
+  )
+  const myActiveMatch = user
+    ? allMatches.find(
+        (m) =>
+          (m.player1_id === user.id || m.player2_id === user.id) &&
+          (m.status === 'scheduled' || m.status === 'awaiting_confirmation')
+      ) ?? null
+    : null
+
+  const opponentName = myActiveMatch
+    ? myActiveMatch.player1_id === user?.id
+      ? (myActiveMatch.player2_name ?? profileMap[myActiveMatch.player2_id ?? '']?.display_name ?? profileMap[myActiveMatch.player2_id ?? '']?.username ?? 'Opponent')
+      : (myActiveMatch.player1_name ?? profileMap[myActiveMatch.player1_id ?? '']?.display_name ?? profileMap[myActiveMatch.player1_id ?? '']?.username ?? 'Opponent')
+    : null
 
   return (
     <div className="page-container">
@@ -141,6 +169,36 @@ export default async function TournamentDetailPage({ params }: PageProps) {
           </span>
         </div>
       </div>
+
+      {/* ── Your Match CTA ── shown to logged-in players with an active match */}
+      {myActiveMatch && (
+        <div className="mb-8 rounded-xl border border-brand-400/40 dark:border-brand-600/40 bg-brand-50 dark:bg-brand-900/20 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-brand-700 dark:text-brand-300 uppercase tracking-wider">
+                  <span className="h-1.5 w-1.5 rounded-full bg-brand-500 animate-pulse" />
+                  Your Match — {myActiveMatch.status === 'awaiting_confirmation' ? 'Awaiting Confirmation' : 'Ready to Play'}
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                Match #{myActiveMatch.match_number} · vs{' '}
+                <span className="text-brand-600 dark:text-brand-400">{opponentName}</span>
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Play your match, then submit the score and upload a screenshot for the organizer.
+              </p>
+            </div>
+            <Link
+              href={`/matches/${myActiveMatch.id}`}
+              className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-brand-500 hover:bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors"
+            >
+              <Upload className="h-4 w-4" />
+              Submit Result &amp; Screenshot
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Bracket / Schedule */}
       {rounds && rounds.length > 0 ? (
