@@ -214,6 +214,7 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                     </div>
                   </div>
 
+                  {/* Finalized screenshot */}
                   {m.screenshotSignedUrl && (
                     <a href={m.screenshotSignedUrl} target="_blank" rel="noopener noreferrer">
                       <img
@@ -222,6 +223,29 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                         className="w-full rounded border border-gray-200 dark:border-gray-700 object-contain max-h-40"
                       />
                     </a>
+                  )}
+
+                  {/* Submission screenshot (uploaded by a player, match not yet confirmed) */}
+                  {m.submissionScreenshotSignedUrl && (
+                    <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3">
+                      <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2">
+                        📸 Screenshot submitted{m.submittedByName ? ` by ${m.submittedByName}` : ''} — pending your confirmation
+                      </p>
+                      <a href={m.submissionScreenshotSignedUrl} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={m.submissionScreenshotSignedUrl}
+                          alt="Submitted screenshot"
+                          className="w-full rounded border border-yellow-200 dark:border-yellow-700 object-contain max-h-48 mb-2"
+                        />
+                      </a>
+                      <Link
+                        href={`/matches/${m.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Review &amp; Confirm Result
+                      </Link>
+                    </div>
                   )}
                 </div>
               )

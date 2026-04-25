@@ -18,7 +18,9 @@ export type ManageMatch = {
   player2_score: number | null
   status: string
   screenshot_url: string | null
-  screenshotSignedUrl: string | null
+  screenshotSignedUrl: string | null        // from finalized match row
+  submissionScreenshotSignedUrl: string | null // from result_submissions (pre-finalization)
+  submittedByName: string | null            // who submitted the pending screenshot
   round_name: string | null
 }
 
@@ -62,7 +64,31 @@ export default async function ManageTournamentPage({ params }: PageProps) {
     redirect(`/tournaments/${params.id}`)
   }
 
-  // Generate signed URLs for screenshots
+  // Fetch result_submissions for all matches so we can show screenshots
+  // submitted by players even before the match is finalized
+  const matchIds = (rawMatches ?? []).map((m: { id: string }) => m.id)
+  const { data: submissions } = matchIds.length
+    ? await supabase
+        .from('result_submissions')
+        .select('match_id, screenshot_url, submitted_by, profiles(display_name, username)')
+        .in('match_id', matchIds)
+        .not('screenshot_url', 'is', null)
+    : { data: [] }
+
+  // Build a lookup: match_id → first submission that has a screenshot
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const submissionByMatch = new Map<string, { screenshot_url: string; submittedByName: string | null }>()
+  for (const sub of (submissions ?? []) as any[]) {
+    if (!submissionByMatch.has(sub.match_id)) {
+      const prof = sub.profiles as { display_name?: string | null; username?: string | null } | null
+      submissionByMatch.set(sub.match_id, {
+        screenshot_url: sub.screenshot_url,
+        submittedByName: prof?.display_name ?? prof?.username ?? null,
+      })
+    }
+  }
+
+  // Generate signed URLs for both finalized screenshots and submission screenshots
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matches: ManageMatch[] = await Promise.all((rawMatches ?? []).map(async (m: any) => {
     let screenshotSignedUrl: string | null = null
@@ -72,6 +98,19 @@ export default async function ManageTournamentPage({ params }: PageProps) {
         .createSignedUrl(m.screenshot_url, 60 * 60)
       screenshotSignedUrl = signed?.signedUrl ?? null
     }
+
+    let submissionScreenshotSignedUrl: string | null = null
+    let submittedByName: string | null = null
+    const submission = submissionByMatch.get(m.id)
+    if (submission && !m.screenshot_url) {
+      // Only show submission screenshot if the match isn't finalized yet
+      const { data: signed } = await supabase.storage
+        .from('screenshots')
+        .createSignedUrl(submission.screenshot_url, 60 * 60)
+      submissionScreenshotSignedUrl = signed?.signedUrl ?? null
+      submittedByName = submission.submittedByName
+    }
+
     return {
       id: m.id,
       match_number: m.match_number,
@@ -84,6 +123,8 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       status: m.status,
       screenshot_url: m.screenshot_url,
       screenshotSignedUrl,
+      submissionScreenshotSignedUrl,
+      submittedByName,
       round_name: m.rounds?.round_name ?? null,
     }
   }))
