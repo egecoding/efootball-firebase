@@ -1,6 +1,5 @@
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
 import { PlayerPortal } from '@/components/tournament/PlayerPortal'
 import type {
   TournamentWithOrganizer,
@@ -15,15 +14,28 @@ interface PageProps {
 
 export default async function PlayerPortalPage({ params }: PageProps) {
   const supabase = await createClient()
-  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Use admin client so guests (user_id = null) can read rounds/matches without
-  // being blocked by RLS policies that require auth.uid() to match a participant.
-  const [{ data: tournament }, { data: participants }, { data: rounds }] =
-    await Promise.all([
+  // Try to use admin client (requires SUPABASE_SERVICE_ROLE_KEY).
+  // If the key is missing (e.g. not yet set on Vercel), fall back to the
+  // regular tournament page rather than crashing to a 404.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let admin: any
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/admin')
+    admin = createAdminClient()
+  } catch {
+    redirect(`/tournaments/${params.id}`)
+  }
+
+  let tournament: unknown = null
+  let participants: unknown[] = []
+  let rounds: unknown[] = []
+
+  try {
+    const [t, p, r] = await Promise.all([
       admin
         .from('tournaments')
         .select(
@@ -46,40 +58,42 @@ export default async function PlayerPortalPage({ params }: PageProps) {
         .eq('tournament_id', params.id)
         .order('round_number', { ascending: true }),
     ])
+    tournament = t.data
+    participants = p.data ?? []
+    rounds = r.data ?? []
+  } catch {
+    redirect(`/tournaments/${params.id}`)
+  }
 
-  if (!tournament) notFound()
+  if (!tournament) redirect(`/tournaments/${params.id}`)
 
   const typedTournament = tournament as unknown as TournamentWithOrganizer
 
-  // Build profile map for bracket/schedule display
   const profileMap: Record<
     string,
     Pick<Profile, 'id' | 'username' | 'display_name' | 'avatar_url'>
   > = {}
-  if (participants) {
-    for (const p of participants) {
-      if (p.profiles && p.user_id) {
-        const prof = p.profiles as unknown as Profile
-        profileMap[p.user_id] = {
-          id: prof.id,
-          username: prof.username,
-          display_name: prof.display_name,
-          avatar_url: prof.avatar_url,
-        }
+  for (const p of participants as ParticipantWithProfile[]) {
+    if (p.profiles && p.user_id) {
+      const prof = p.profiles as unknown as Profile
+      profileMap[p.user_id] = {
+        id: prof.id,
+        username: prof.username,
+        display_name: prof.display_name,
+        avatar_url: prof.avatar_url,
       }
     }
   }
 
-  // For logged-in users, find their participant_id from the DB
   const userParticipantId = user
-    ? (participants ?? []).find((p) => p.user_id === user.id)?.id ?? null
+    ? (participants as ParticipantWithProfile[]).find((p) => p.user_id === user.id)?.id ?? null
     : null
 
   return (
     <PlayerPortal
       tournament={typedTournament}
-      participants={(participants as unknown as ParticipantWithProfile[]) ?? []}
-      rounds={(rounds as unknown as RoundWithMatches[]) ?? []}
+      participants={participants as ParticipantWithProfile[]}
+      rounds={rounds as RoundWithMatches[]}
       profileMap={profileMap}
       currentUserId={user?.id ?? null}
       userParticipantId={userParticipantId}
