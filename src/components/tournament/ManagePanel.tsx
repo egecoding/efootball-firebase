@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, Play, Trash2, UserPlus, ExternalLink } from 'lucide-react'
+import { Share2, Play, Trash2, UserPlus, ExternalLink, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { InviteModal } from './InviteModal'
@@ -29,6 +29,10 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
   const [addError, setAddError] = useState('')
   const [adding, setAdding] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // Per-match confirm state
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const [confirmErrors, setConfirmErrors] = useState<Record<string, string>>({})
 
   const isFull = participants.length >= tournament.max_participants
 
@@ -72,6 +76,19 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
     setDeleteLoading(true)
     await fetch(`/api/tournaments/${tournament.id}`, { method: 'DELETE' })
     router.push('/dashboard')
+    router.refresh()
+  }
+
+  async function confirmResult(matchId: string) {
+    setConfirmingId(matchId)
+    setConfirmErrors((prev) => ({ ...prev, [matchId]: '' }))
+    const res = await fetch(`/api/matches/${matchId}/confirm`, { method: 'POST' })
+    const data = await res.json()
+    setConfirmingId(null)
+    if (!res.ok) {
+      setConfirmErrors((prev) => ({ ...prev, [matchId]: data.error }))
+      return
+    }
     router.refresh()
   }
 
@@ -184,6 +201,8 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                 m.player1_score !== null && m.player2_score !== null
                   ? `${m.player1_score} – ${m.player2_score}`
                   : null
+              const isConfirming = confirmingId === m.id
+              const confirmError = confirmErrors[m.id]
 
               return (
                 <div
@@ -225,26 +244,35 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                     </a>
                   )}
 
-                  {/* Submission screenshot (uploaded by a player, match not yet confirmed) */}
+                  {/* Submission screenshot — player submitted, organizer confirms inline */}
                   {m.submissionScreenshotSignedUrl && (
                     <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 p-3">
                       <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2">
-                        📸 Screenshot submitted{m.submittedByName ? ` by ${m.submittedByName}` : ''} — pending your confirmation
+                        Screenshot submitted{m.submittedByName ? ` by ${m.submittedByName}` : ''} — pending your confirmation
                       </p>
                       <a href={m.submissionScreenshotSignedUrl} target="_blank" rel="noopener noreferrer">
                         <img
                           src={m.submissionScreenshotSignedUrl}
                           alt="Submitted screenshot"
-                          className="w-full rounded border border-yellow-200 dark:border-yellow-700 object-contain max-h-48 mb-2"
+                          className="w-full rounded border border-yellow-200 dark:border-yellow-700 object-contain max-h-48 mb-3"
                         />
                       </a>
-                      <Link
-                        href={`/matches/${m.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                      {scoreText && (
+                        <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-3 font-medium">
+                          Submitted score: {scoreText}
+                        </p>
+                      )}
+                      {confirmError && (
+                        <p className="text-xs text-red-600 dark:text-red-400 mb-2">{confirmError}</p>
+                      )}
+                      <button
+                        onClick={() => confirmResult(m.id)}
+                        disabled={isConfirming}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
                       >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                        Review &amp; Confirm Result
-                      </Link>
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        {isConfirming ? 'Confirming…' : 'Confirm Result'}
+                      </button>
                     </div>
                   )}
                 </div>

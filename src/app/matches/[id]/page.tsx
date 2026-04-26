@@ -155,15 +155,22 @@ export default async function MatchPage({ params }: PageProps) {
               </div>
             )}
 
-            {isOrganizer && !isPlayer && canSubmit && (
-              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-400 mb-6 text-center">
-                Submitting as organizer — result will be applied immediately.
+            {typedMatch.status === 'awaiting_confirmation' && isPlayer && (
+              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 mb-6 text-center">
+                Score submitted — waiting for the organizer to confirm.
               </div>
             )}
 
-            {typedMatch.status === 'awaiting_confirmation' && isPlayer && (
-              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 mb-6 text-center">
-                Waiting for the other player to confirm the score.
+            {typedMatch.status === 'awaiting_confirmation' && isOrganizer && !isPlayer && (
+              <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-400 mb-6 text-center">
+                Confirm the result from the{' '}
+                <Link
+                  href={`/tournaments/${typedMatch.tournament_id}/manage`}
+                  className="font-semibold underline"
+                >
+                  manage panel
+                </Link>
+                .
               </div>
             )}
 
@@ -173,23 +180,14 @@ export default async function MatchPage({ params }: PageProps) {
               </p>
             )}
 
-            {canSubmit && user ? (
+            {/* Result form — players only, not organizers */}
+            {isPlayer && canSubmit && user ? (
               <ResultForm
                 match={typedMatch as unknown as MatchWithPlayers}
                 currentUserId={user.id}
                 player1Profile={p1ForForm}
                 player2Profile={p2ForForm}
               />
-            ) : !user ? (
-              <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                <Link
-                  href={`/auth/login?redirectTo=/matches/${params.id}`}
-                  className="text-brand-500 hover:text-brand-600"
-                >
-                  Sign in
-                </Link>{' '}
-                to submit results.
-              </p>
             ) : null}
           </div>
         </div>
