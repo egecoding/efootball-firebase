@@ -57,20 +57,27 @@ export async function POST(
     return NextResponse.json({ error: 'Tournament is full' }, { status: 409 })
   }
 
-  const participant = user
+  const participantRow = user
     ? { tournament_id: params.id, user_id: user.id }
     : { tournament_id: params.id, user_id: null, name: (name as string).trim() }
 
-  const { error: joinError } = await supabase
+  const { data: inserted, error: joinError } = await supabase
     .from('participants')
-    .insert(participant)
+    .insert(participantRow)
+    .select('id')
+    .single()
 
   if (joinError) {
     if (joinError.code === '23505') {
-      return NextResponse.json({ error: 'Already joined' }, { status: 409 })
+      // Already joined — find existing row and return its id
+      const query = user
+        ? supabase.from('participants').select('id').eq('tournament_id', params.id).eq('user_id', user.id).single()
+        : supabase.from('participants').select('id').eq('tournament_id', params.id).eq('name', (name as string).trim()).order('joined_at', { ascending: false }).limit(1).single()
+      const { data: existing } = await query
+      return NextResponse.json({ participant_id: existing?.id ?? null, already_joined: true })
     }
     return NextResponse.json({ error: joinError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ participant_id: inserted?.id ?? null })
 }
