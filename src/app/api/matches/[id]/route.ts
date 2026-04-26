@@ -30,7 +30,6 @@ export async function PATCH(
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
   const { player1_score, player2_score, screenshot_url } = body
@@ -41,6 +40,7 @@ export async function PATCH(
   if (player1_score < 0 || player2_score < 0) {
     return NextResponse.json({ error: 'Scores must be non-negative' }, { status: 400 })
   }
+
   // Fetch match + tournament format
   const { data: match } = await supabase
     .from('matches')
@@ -58,16 +58,10 @@ export async function PATCH(
     .eq('id', match.tournament_id)
     .single()
 
-  const isOrganizer = tournament?.organizer_id === user.id
-  const isPlayer = match.player1_id === user.id || match.player2_id === user.id
   const format = (tournament?.format as string) ?? 'knockout'
 
   if (player1_score === player2_score && format === 'knockout') {
     return NextResponse.json({ error: 'Draws are not allowed in knockout tournaments' }, { status: 400 })
-  }
-
-  if (!isPlayer && !isOrganizer) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   if (!['scheduled', 'awaiting_confirmation'].includes(match.status)) {
@@ -75,6 +69,57 @@ export async function PATCH(
       { error: 'Match is not in a submittable state' },
       { status: 409 }
     )
+  }
+
+  // ── Guest submission via X-Participant-Id header ──────────────────────────
+  if (!user) {
+    const participantId = request.headers.get('X-Participant-Id')
+    if (!participantId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: participant } = await supabase
+      .from('participants')
+      .select('id, name')
+      .eq('id', participantId)
+      .single()
+
+    if (!participant?.name) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const isGuestInMatch =
+      match.player1_name === participant.name ||
+      match.player2_name === participant.name
+    if (!isGuestInMatch) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Guest flow: store scores on match row and go straight to awaiting_confirmation.
+    // The organizer reviews the screenshot and finalises from the manage panel.
+    const { error: updateErr } = await supabase
+      .from('matches')
+      .update({
+        player1_score,
+        player2_score,
+        status: 'awaiting_confirmation',
+        screenshot_url: screenshot_url ?? null,
+      })
+      .eq('id', params.id)
+
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ status: 'awaiting_confirmation' })
+  }
+
+  // ── Authenticated user submission ─────────────────────────────────────────
+  const isOrganizer = tournament?.organizer_id === user.id
+  const isPlayer = match.player1_id === user.id || match.player2_id === user.id
+
+  if (!isPlayer && !isOrganizer) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // If organizer directly submits, bypass two-player flow

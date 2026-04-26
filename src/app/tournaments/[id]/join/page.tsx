@@ -50,8 +50,13 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
       return
     }
 
+    // Store participant_id so the portal can identify this player (guest or registered)
+    if (data.participant_id) {
+      localStorage.setItem(`participant_${params.id}`, data.participant_id)
+    }
+
     setSuccess(true)
-    setTimeout(() => router.push(`/tournaments/${params.id}`), 2200)
+    setTimeout(() => router.push(`/tournaments/${params.id}/portal`), 2200)
   }
 
   return (
