@@ -88,27 +88,40 @@ export default async function ManageTournamentPage({ params }: PageProps) {
     }
   }
 
-  // Generate signed URLs for both finalized screenshots and submission screenshots
+  // Generate signed URLs for screenshots.
+  // Rule: completed match → screenshotSignedUrl (plain confirmed image)
+  //       awaiting_confirmation → submissionScreenshotSignedUrl (yellow "Review & Confirm" card)
+  //         sources: result_submissions (registered player) OR matches.screenshot_url (guest)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const matches: ManageMatch[] = await Promise.all((rawMatches ?? []).map(async (m: any) => {
     let screenshotSignedUrl: string | null = null
-    if (m.screenshot_url) {
+    let submissionScreenshotSignedUrl: string | null = null
+    let submittedByName: string | null = null
+
+    const submission = submissionByMatch.get(m.id)
+
+    if (m.status === 'completed' && m.screenshot_url) {
+      // Finalized — show as a confirmed screenshot (no action needed)
       const { data: signed } = await supabase.storage
         .from('screenshots')
         .createSignedUrl(m.screenshot_url, 60 * 60)
       screenshotSignedUrl = signed?.signedUrl ?? null
-    }
-
-    let submissionScreenshotSignedUrl: string | null = null
-    let submittedByName: string | null = null
-    const submission = submissionByMatch.get(m.id)
-    if (submission && !m.screenshot_url) {
-      // Only show submission screenshot if the match isn't finalized yet
-      const { data: signed } = await supabase.storage
-        .from('screenshots')
-        .createSignedUrl(submission.screenshot_url, 60 * 60)
-      submissionScreenshotSignedUrl = signed?.signedUrl ?? null
-      submittedByName = submission.submittedByName
+    } else if (m.status === 'awaiting_confirmation') {
+      if (submission) {
+        // Registered player submitted via result_submissions
+        const { data: signed } = await supabase.storage
+          .from('screenshots')
+          .createSignedUrl(submission.screenshot_url, 60 * 60)
+        submissionScreenshotSignedUrl = signed?.signedUrl ?? null
+        submittedByName = submission.submittedByName
+      } else if (m.screenshot_url) {
+        // Guest submitted directly to the match row — still needs organizer confirmation
+        const { data: signed } = await supabase.storage
+          .from('screenshots')
+          .createSignedUrl(m.screenshot_url, 60 * 60)
+        submissionScreenshotSignedUrl = signed?.signedUrl ?? null
+        // name unknown for guests — card will read "Screenshot submitted — pending your confirmation"
+      }
     }
 
     return {

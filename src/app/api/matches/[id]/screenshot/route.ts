@@ -23,7 +23,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: participant } = await supabase
+    const admin = createAdminClient()
+
+    const { data: participant } = await admin
       .from('participants')
       .select('id, name')
       .eq('id', participantId)
@@ -34,7 +36,7 @@ export async function POST(
     }
 
     // Verify participant is in this match
-    const { data: match } = await supabase
+    const { data: match } = await admin
       .from('matches')
       .select('player1_name, player2_name')
       .eq('id', params.id)

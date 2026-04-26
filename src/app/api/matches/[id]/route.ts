@@ -27,10 +27,14 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
+  // Auth check — regular client only needed for getUser()
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // All DB reads/writes use admin client to avoid anon-role RLS issues
+  const admin = createAdminClient()
 
   const body = await request.json()
   const { player1_score, player2_score, screenshot_url } = body
@@ -42,8 +46,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Scores must be non-negative' }, { status: 400 })
   }
 
-  // Fetch match + tournament format
-  const { data: match } = await supabase
+  // Fetch match + tournament format via admin (bypasses RLS for all callers)
+  const { data: match } = await admin
     .from('matches')
     .select(
       'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id'
@@ -53,7 +57,7 @@ export async function PATCH(
 
   if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
 
-  const { data: tournament } = await supabase
+  const { data: tournament } = await admin
     .from('tournaments')
     .select('organizer_id, format')
     .eq('id', match.tournament_id)
@@ -79,7 +83,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: participant } = await supabase
+    const { data: participant } = await admin
       .from('participants')
       .select('id, name')
       .eq('id', participantId)
@@ -96,10 +100,6 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Guest flow: use admin client to bypass RLS.
-    // Scores are stored on the match row and status moves to awaiting_confirmation.
-    // The organizer reviews the screenshot from the manage panel and finalises.
-    const admin = createAdminClient()
     const { error: updateErr } = await admin
       .from('matches')
       .update({
@@ -127,11 +127,11 @@ export async function PATCH(
 
   // If organizer directly submits, bypass two-player flow
   if (isOrganizer && !isPlayer) {
-    return finalizeMatch(supabase, match, player1_score, player2_score, screenshot_url, user.id)
+    return finalizeMatch(admin, match, player1_score, player2_score, screenshot_url, user.id)
   }
 
   // Upsert player submission
-  const { error: subError } = await supabase
+  const { error: subError } = await admin
     .from('result_submissions')
     .upsert(
       {
@@ -149,7 +149,7 @@ export async function PATCH(
   }
 
   // Fetch all submissions for this match
-  const { data: submissions } = await supabase
+  const { data: submissions } = await admin
     .from('result_submissions')
     .select('submitted_by, player1_score, player2_score')
     .eq('match_id', params.id)
@@ -162,7 +162,7 @@ export async function PATCH(
 
   if (!otherSubmission) {
     // First submission only — mark awaiting
-    await supabase
+    await admin
       .from('matches')
       .update({ status: 'awaiting_confirmation' })
       .eq('id', params.id)
@@ -186,7 +186,7 @@ export async function PATCH(
 
   // Finalize with agreed scores
   return finalizeMatch(
-    supabase,
+    admin,
     match,
     submissions![0].player1_score,
     submissions![0].player2_score,
