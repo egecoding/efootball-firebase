@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   max_participants  INTEGER NOT NULL DEFAULT 8 CHECK (max_participants IN (4, 8, 16, 32)),
   format            TEXT NOT NULL DEFAULT 'knockout' CHECK (format IN ('knockout', 'round_robin', 'league')),
   status            public.tournament_status NOT NULL DEFAULT 'open',
-  invite_code       TEXT UNIQUE NOT NULL DEFAULT upper(substring(encode(gen_random_bytes(6), 'base64'), 1, 8)),
+  invite_code       TEXT UNIQUE NOT NULL DEFAULT upper(substring(replace(replace(encode(gen_random_bytes(9), 'base64'), '/', ''), '+', ''), 1, 8)),
   is_public         BOOLEAN NOT NULL DEFAULT true,
   starts_at         TIMESTAMPTZ,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
