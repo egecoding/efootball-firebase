@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
@@ -13,11 +14,13 @@ interface PageProps {
 
 export default async function MatchPage({ params }: PageProps) {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { data: match } = await supabase
+  // Use admin client so guests can view match details without a session
+  const { data: match } = await admin
     .from('matches')
     .select(
       'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
@@ -35,7 +38,7 @@ export default async function MatchPage({ params }: PageProps) {
   )
 
   const { data: profiles } = playerIds.length
-    ? await supabase
+    ? await admin
         .from('profiles')
         .select('id, username, display_name, avatar_url, wins, losses, created_at, updated_at')
         .in('id', playerIds)
@@ -53,7 +56,7 @@ export default async function MatchPage({ params }: PageProps) {
   const p1DisplayName = p1?.display_name ?? p1?.username ?? typedMatch.player1_name ?? 'Player 1'
   const p2DisplayName = p2?.display_name ?? p2?.username ?? typedMatch.player2_name ?? 'Player 2'
 
-  const { data: tournament } = await supabase
+  const { data: tournament } = await admin
     .from('tournaments')
     .select('title, id, organizer_id')
     .eq('id', typedMatch.tournament_id)
@@ -72,14 +75,14 @@ export default async function MatchPage({ params }: PageProps) {
     (typedMatch.status === 'scheduled' || typedMatch.status === 'awaiting_confirmation')
 
   let screenshotSignedUrl: string | null = null
-  if (typedMatch.screenshot_url && user) {
-    const { data: signed } = await supabase.storage
+  if (typedMatch.screenshot_url) {
+    const { data: signed } = await admin.storage
       .from('screenshots')
       .createSignedUrl(typedMatch.screenshot_url, 60 * 60)
     screenshotSignedUrl = signed?.signedUrl ?? null
   }
 
-  const { data: round } = await supabase
+  const { data: round } = await admin
     .from('rounds')
     .select('round_name')
     .eq('id', typedMatch.round_id)

@@ -25,22 +25,29 @@ export async function POST(
 
     const admin = createAdminClient()
 
-    const { data: participant } = await admin
+    const { data: participant, error: participantErr } = await admin
       .from('participants')
       .select('id, name')
       .eq('id', participantId)
       .single()
 
-    if (!participant) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (participantErr || !participant) {
+      return NextResponse.json(
+        { error: participantErr?.message ?? 'Unauthorized' },
+        { status: participantErr ? 500 : 401 }
+      )
     }
 
     // Verify participant is in this match
-    const { data: match } = await admin
+    const { data: match, error: matchErr } = await admin
       .from('matches')
       .select('player1_name, player2_name')
       .eq('id', params.id)
       .single()
+
+    if (matchErr) {
+      return NextResponse.json({ error: matchErr.message }, { status: 500 })
+    }
 
     if (
       !match ||

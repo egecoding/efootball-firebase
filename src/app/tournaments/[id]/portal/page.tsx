@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PlayerPortal } from '@/components/tournament/PlayerPortal'
 import type {
   TournamentWithOrganizer,
@@ -14,27 +15,30 @@ interface PageProps {
 
 export default async function PlayerPortalPage({ params }: PageProps) {
   const supabase = await createClient()
+  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Use admin client so guests (user_id = null) can read rounds/matches without
+  // being blocked by RLS policies that require auth.uid() to match a participant.
   const [{ data: tournament }, { data: participants }, { data: rounds }] =
     await Promise.all([
-      supabase
+      admin
         .from('tournaments')
         .select(
           'id, organizer_id, title, description, game_name, max_participants, status, format, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
         )
         .eq('id', params.id)
         .single(),
-      supabase
+      admin
         .from('participants')
         .select(
           'id, tournament_id, user_id, name, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
         )
         .eq('tournament_id', params.id)
         .order('joined_at', { ascending: true }),
-      supabase
+      admin
         .from('rounds')
         .select(
           'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at)'

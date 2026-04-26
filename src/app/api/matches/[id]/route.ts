@@ -47,7 +47,7 @@ export async function PATCH(
   }
 
   // Fetch match + tournament format via admin (bypasses RLS for all callers)
-  const { data: match } = await admin
+  const { data: match, error: matchErr } = await admin
     .from('matches')
     .select(
       'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id'
@@ -55,13 +55,25 @@ export async function PATCH(
     .eq('id', params.id)
     .single()
 
-  if (!match) return NextResponse.json({ error: 'Match not found' }, { status: 404 })
+  if (matchErr || !match) {
+    return NextResponse.json(
+      { error: matchErr?.message ?? 'Match not found' },
+      { status: matchErr ? 500 : 404 }
+    )
+  }
 
-  const { data: tournament } = await admin
+  const { data: tournament, error: tournamentErr } = await admin
     .from('tournaments')
     .select('organizer_id, format')
     .eq('id', match.tournament_id)
     .single()
+
+  if (tournamentErr || !tournament) {
+    return NextResponse.json(
+      { error: tournamentErr?.message ?? 'Tournament not found' },
+      { status: tournamentErr ? 500 : 404 }
+    )
+  }
 
   const format = (tournament?.format as string) ?? 'knockout'
 
@@ -83,14 +95,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: participant } = await admin
+    const { data: participant, error: participantErr } = await admin
       .from('participants')
       .select('id, name')
       .eq('id', participantId)
       .single()
 
-    if (!participant?.name) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (participantErr || !participant?.name) {
+      return NextResponse.json(
+        { error: participantErr?.message ?? 'Unauthorized' },
+        { status: participantErr ? 500 : 401 }
+      )
     }
 
     const isGuestInMatch =
