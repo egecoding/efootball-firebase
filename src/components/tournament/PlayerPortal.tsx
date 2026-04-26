@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Trophy, Users, Calendar, Upload, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import {
+  Trophy, Users, Calendar, Upload, CheckCircle, Clock, ImagePlus, X, Check,
+} from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Spinner } from '@/components/ui/Spinner'
 import { TournamentStatusBadge } from '@/components/ui/Badge'
 import { BracketView } from '@/components/tournament/BracketView'
 import { ScheduleView } from '@/components/tournament/ScheduleView'
@@ -61,8 +64,13 @@ export function PlayerPortal({
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null)
 
+  // Screenshot state
+  const [screenshotPath, setScreenshotPath] = useState<string | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
+  const [uploadFileName, setUploadFileName] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
-    // Read localStorage for guest participant_id if not already set
     let pid = participantId
     if (!pid) {
       pid = localStorage.getItem(`participant_${tournamentId}`)
@@ -71,7 +79,6 @@ export function PlayerPortal({
 
     if (!pid) return
 
-    // Find participant's name from the list
     const participant = participants.find((p) => p.id === pid)
     const name =
       participant?.name ??
@@ -80,7 +87,6 @@ export function PlayerPortal({
       null
     setMyName(name)
 
-    // Find their active match across all rounds
     const allMatches = rounds.flatMap((r) => (r.matches ?? []) as unknown as ActiveMatch[])
     const active = allMatches.find((m) => {
       const byUserId = currentUserId && (m.player1_id === currentUserId || m.player2_id === currentUserId)
@@ -89,6 +95,46 @@ export function PlayerPortal({
     }) ?? null
     setMyMatch(active)
   }, [participantId, participants, rounds, currentUserId, tournamentId])
+
+  async function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !myMatch) return
+
+    setUploadStatus('uploading')
+    setUploadFileName(file.name)
+    setScreenshotPath(null)
+
+    const form = new FormData()
+    form.append('file', file)
+
+    const headers: Record<string, string> = {}
+    if (!currentUserId && participantId) {
+      headers['X-Participant-Id'] = participantId
+    }
+
+    const res = await fetch(`/api/matches/${myMatch.id}/screenshot`, {
+      method: 'POST',
+      headers,
+      body: form,
+    })
+
+    if (!res.ok) {
+      setUploadStatus('error')
+      setScreenshotPath(null)
+      return
+    }
+
+    const { path } = await res.json()
+    setUploadStatus('done')
+    setScreenshotPath(path)
+  }
+
+  function clearScreenshot() {
+    setUploadStatus('idle')
+    setUploadFileName('')
+    setScreenshotPath(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -104,7 +150,6 @@ export function PlayerPortal({
     }
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    // For guests, pass participant_id as credential
     if (!currentUserId && participantId) {
       headers['X-Participant-Id'] = participantId
     }
@@ -112,7 +157,7 @@ export function PlayerPortal({
     const res = await fetch(`/api/matches/${myMatch!.id}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ player1_score: s1, player2_score: s2, screenshot_url: null }),
+      body: JSON.stringify({ player1_score: s1, player2_score: s2, screenshot_url: screenshotPath }),
     })
 
     const data = await res.json()
@@ -194,7 +239,7 @@ export function PlayerPortal({
         )}
       </div>
 
-      {/* ── Your Match card ────────────────────────────────────────────────── */}
+      {/* ── Your Match card ───────────────────────────────────────────────── */}
       {myMatch && (
         <div className="mb-8 rounded-xl border border-brand-400/40 dark:border-brand-600/40 bg-brand-50 dark:bg-brand-900/20 p-5">
           <div className="flex items-center gap-2 mb-3">
@@ -221,8 +266,10 @@ export function PlayerPortal({
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Play the match, then enter the final score below. The organizer will confirm.
+                Play the match, enter the final score, and upload a screenshot for the organizer to verify.
               </p>
+
+              {/* Score inputs */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 truncate">
@@ -256,21 +303,74 @@ export function PlayerPortal({
                 </div>
               </div>
 
-              {/* Screenshot upload link — registered users only */}
-              {currentUserId && (
-                <div className="rounded-lg border border-dashed border-gray-200 dark:border-gray-700 px-4 py-3 text-xs text-gray-500 dark:text-gray-400 flex items-start gap-2">
-                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-gray-400" />
-                  <span>
-                    Want to attach a screenshot?{' '}
-                    <Link
-                      href={`/matches/${myMatch.id}`}
-                      className="text-brand-500 hover:underline font-medium"
+              {/* Screenshot upload — works for guests and registered users */}
+              <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900/50">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1 uppercase tracking-wider">
+                  Match Screenshot{' '}
+                  <span className="normal-case font-normal text-gray-400">(optional but recommended)</span>
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                  The organizer will see your screenshot and confirm the result — only one player needs to submit.
+                </p>
+
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleScreenshotUpload}
+                  className="hidden"
+                  id="portal-screenshot-upload"
+                />
+
+                {uploadStatus === 'idle' && (
+                  <label
+                    htmlFor="portal-screenshot-upload"
+                    className="flex items-center gap-3 cursor-pointer rounded-lg border border-dashed border-gray-300 dark:border-gray-700 px-4 py-3 hover:border-brand-400 hover:bg-brand-50/50 dark:hover:bg-brand-900/10 transition-colors"
+                  >
+                    <ImagePlus className="h-5 w-5 text-gray-400" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Upload match screenshot
+                    </span>
+                  </label>
+                )}
+
+                {uploadStatus === 'uploading' && (
+                  <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-800 px-4 py-3">
+                    <Spinner size="sm" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
+                      Uploading {uploadFileName}…
+                    </span>
+                  </div>
+                )}
+
+                {uploadStatus === 'done' && (
+                  <div className="flex items-center gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3">
+                    <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <span className="flex-1 text-sm text-green-700 dark:text-green-400 truncate">
+                      {uploadFileName}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearScreenshot}
+                      className="text-green-600 dark:text-green-400 hover:text-red-500 transition-colors"
+                      aria-label="Remove"
                     >
-                      Open full result form
-                    </Link>
-                  </span>
-                </div>
-              )}
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
+                {uploadStatus === 'error' && (
+                  <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3">
+                    <span className="flex-1 text-sm text-red-700 dark:text-red-400">
+                      Upload failed — try again.
+                    </span>
+                    <button type="button" onClick={clearScreenshot} className="text-red-600 dark:text-red-400">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {message && (
                 <div
@@ -286,7 +386,7 @@ export function PlayerPortal({
                 </div>
               )}
 
-              <Button type="submit" loading={submitting} size="lg">
+              <Button type="submit" loading={submitting} disabled={uploadStatus === 'uploading'} size="lg">
                 <Upload className="h-4 w-4" />
                 Submit Score
               </Button>

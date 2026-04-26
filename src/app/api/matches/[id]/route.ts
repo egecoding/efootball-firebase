@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 export async function GET(
@@ -95,9 +96,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Guest flow: store scores on match row and go straight to awaiting_confirmation.
-    // The organizer reviews the screenshot and finalises from the manage panel.
-    const { error: updateErr } = await supabase
+    // Guest flow: use admin client to bypass RLS.
+    // Scores are stored on the match row and status moves to awaiting_confirmation.
+    // The organizer reviews the screenshot from the manage panel and finalises.
+    const admin = createAdminClient()
+    const { error: updateErr } = await admin
       .from('matches')
       .update({
         player1_score,
