@@ -5,6 +5,9 @@ const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         brand: {
           50: '#f0fdf4',
@@ -22,12 +25,14 @@ const config: Config = {
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-in-out',
-        'slide-up': 'slideUp 0.2s ease-out',
+        'slide-up': 'slideUp 0.25s ease-out',
+        'slide-down': 'slideDown 0.25s ease-out',
         'pulse-ring': 'pulseRing 1.5s ease-in-out infinite',
         'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68,-0.55,0.265,1.55) forwards',
         'draw-circle': 'drawCircle 0.5s ease-out forwards',
         'draw-check': 'drawCheck 0.35s ease-out 0.45s forwards',
         'float': 'float 3s ease-in-out infinite',
+        'shimmer': 'shimmer 1.5s infinite',
       },
       keyframes: {
         fadeIn: {
@@ -57,6 +62,14 @@ const config: Config = {
         float: {
           '0%, 100%': { transform: 'translateY(0px)' },
           '50%': { transform: 'translateY(-6px)' },
+        },
+        slideDown: {
+          '0%': { transform: 'translateY(-8px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+        shimmer: {
+          from: { backgroundPosition: '200% 0' },
+          to: { backgroundPosition: '-200% 0' },
         },
       },
     },

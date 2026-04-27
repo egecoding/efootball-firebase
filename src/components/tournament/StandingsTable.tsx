@@ -82,8 +82,51 @@ export function StandingsTable({ matches, participants, format }: StandingsTable
     b.Pts !== a.Pts ? b.Pts - a.Pts : b.GD !== a.GD ? b.GD - a.GD : b.GF - a.GF
   )
 
+  const n = sorted.length
+
+  function getZone(i: number): 'top' | 'mid-top' | 'relegation' | 'neutral' {
+    if (n <= 3) {
+      // Small table: only color if enough players
+      if (i === 0) return 'top'
+      return 'neutral'
+    }
+    // Top 3 = green (Champions / Promotion)
+    if (i < 3) return 'top'
+    // 4th and 5th = blue (Playoff)
+    if (i === 3 || i === 4) return 'mid-top'
+    // Bottom 2 = red (Relegation)
+    if (i >= n - 2) return 'relegation'
+    return 'neutral'
+  }
+
+  const zoneLabel: Record<string, string> = {
+    top: 'Championship',
+    'mid-top': 'Playoff',
+    relegation: 'Relegation',
+  }
+
+  // Track zone boundary rows for separator lines
+  const zones = sorted.map((_, i) => getZone(i))
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+      {/* Legend */}
+      {n >= 4 && (
+        <div className="flex items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-100 dark:border-gray-800 flex-wrap">
+          <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <span className="h-2.5 w-2.5 rounded-sm bg-green-500/80" /> Top 3 · Promotion
+          </span>
+          {n >= 6 && (
+            <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+              <span className="h-2.5 w-2.5 rounded-sm bg-blue-500/80" /> 4th–5th · Playoff
+            </span>
+          )}
+          <span className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <span className="h-2.5 w-2.5 rounded-sm bg-red-500/80" /> Bottom 2 · Relegation
+          </span>
+        </div>
+      )}
+
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50">
@@ -100,27 +143,55 @@ export function StandingsTable({ matches, participants, format }: StandingsTable
           </tr>
         </thead>
         <tbody>
-          {sorted.map((row, i) => (
-            <tr
-              key={row.id ?? row.name}
-              className={`border-b border-gray-100 dark:border-gray-800 last:border-0 ${
-                i === 0 ? 'bg-brand-50/50 dark:bg-brand-900/10' : 'bg-white dark:bg-gray-900'
-              }`}
-            >
-              <td className="px-4 py-3 text-gray-400 font-mono text-xs">{i + 1}</td>
-              <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{row.name}</td>
-              <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400">{row.P}</td>
-              <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400">{row.W}</td>
-              {format === 'league' && (
-                <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400">{row.D}</td>
-              )}
-              <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400">{row.L}</td>
-              <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400">
-                {row.GD > 0 ? `+${row.GD}` : row.GD}
-              </td>
-              <td className="text-center px-3 py-3 font-bold text-gray-900 dark:text-white">{row.Pts}</td>
-            </tr>
-          ))}
+          {sorted.map((row, i) => {
+            const zone = getZone(i)
+            const isZoneStart = i === 0 || getZone(i - 1) !== zone
+
+            const rowBg =
+              zone === 'top'        ? 'bg-green-100 dark:bg-green-900/40' :
+              zone === 'mid-top'    ? 'bg-blue-100 dark:bg-blue-900/40' :
+              zone === 'relegation' ? 'bg-red-100 dark:bg-red-900/40' :
+                                      'bg-white dark:bg-gray-900'
+
+            const posColor =
+              zone === 'top'        ? 'text-green-600 dark:text-green-400 font-bold' :
+              zone === 'mid-top'    ? 'text-blue-600 dark:text-blue-400 font-bold' :
+              zone === 'relegation' ? 'text-red-500 dark:text-red-400 font-bold' :
+                                      'text-gray-400'
+
+            const leftBorder =
+              zone === 'top'        ? 'border-l-4 border-l-green-500' :
+              zone === 'mid-top'    ? 'border-l-4 border-l-blue-500' :
+              zone === 'relegation' ? 'border-l-4 border-l-red-500' :
+                                      'border-l-4 border-l-transparent'
+
+            const topBorder = isZoneStart && i !== 0 ? 'border-t-2 border-t-gray-200 dark:border-t-gray-700' : ''
+
+            return (
+              <tr
+                key={row.id ?? row.name}
+                className={`border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors ${rowBg} ${leftBorder} ${topBorder}`}
+              >
+                <td className={`px-4 py-3 font-mono text-xs tabular-nums ${posColor}`}>{i + 1}</td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-gray-900 dark:text-white">{row.name}</span>
+                    {i === 0 && <span className="text-xs">🏆</span>}
+                  </div>
+                </td>
+                <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{row.P}</td>
+                <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{row.W}</td>
+                {format === 'league' && (
+                  <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{row.D}</td>
+                )}
+                <td className="text-center px-3 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{row.L}</td>
+                <td className={`text-center px-3 py-3 tabular-nums font-medium ${row.GD > 0 ? 'text-green-600 dark:text-green-400' : row.GD < 0 ? 'text-red-500 dark:text-red-400' : 'text-gray-400'}`}>
+                  {row.GD > 0 ? `+${row.GD}` : row.GD}
+                </td>
+                <td className="text-center px-3 py-3 font-extrabold text-gray-900 dark:text-white tabular-nums">{row.Pts}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

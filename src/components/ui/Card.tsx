@@ -11,7 +11,7 @@ function Card({ className, hover = false, children, ...props }: CardProps) {
       className={cn(
         'rounded-xl border bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 shadow-sm',
         hover &&
-          'cursor-pointer transition-shadow hover:shadow-md hover:border-brand-500/50',
+          'cursor-pointer transition-all duration-200 hover:shadow-lg hover:shadow-black/5 dark:hover:shadow-black/30 hover:border-brand-400/60 dark:hover:border-brand-600/60 hover:-translate-y-0.5',
         className
       )}
       {...props}

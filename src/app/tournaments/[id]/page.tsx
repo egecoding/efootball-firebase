@@ -8,6 +8,8 @@ import { BracketView } from '@/components/tournament/BracketView'
 import { ScheduleView } from '@/components/tournament/ScheduleView'
 import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
+import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons'
+import { calcStandings, calcTopScorer, type MatchRow } from '@/lib/utils/card-helpers'
 import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
 
 interface PageProps {
@@ -77,6 +79,9 @@ export default async function TournamentDetailPage({ params }: PageProps) {
     player1_name: string | null
     player2_id: string | null
     player2_name: string | null
+    player1_score: number | null
+    player2_score: number | null
+    winner_id?: string | null
     status: string
   }
   const allMatches: RawMatch[] = (rounds ?? []).flatMap(
@@ -96,6 +101,44 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       ? (myActiveMatch.player2_name ?? profileMap[myActiveMatch.player2_id ?? '']?.display_name ?? profileMap[myActiveMatch.player2_id ?? '']?.username ?? 'Opponent')
       : (myActiveMatch.player1_name ?? profileMap[myActiveMatch.player1_id ?? '']?.display_name ?? profileMap[myActiveMatch.player1_id ?? '']?.username ?? 'Opponent')
     : null
+
+  // ── Card download eligibility ──
+  const tournamentFormat = (typedTournament as unknown as { format?: string }).format ?? 'knockout'
+  const completedMatches: MatchRow[] = allMatches.filter(
+    (m) => (m as unknown as { status?: string }).status === 'completed'
+  ) as unknown as MatchRow[]
+
+  // Build profileMap for card-helpers (different shape from the local profileMap above)
+  const cardProfileMap = new Map<string, { display_name: string | null; username: string | null; avatar_url: string | null }>()
+  for (const p of participants ?? []) {
+    if (p.user_id && p.profiles) {
+      const prof = p.profiles as unknown as { username: string | null; display_name: string | null; avatar_url: string | null }
+      cardProfileMap.set(p.user_id, { display_name: prof.display_name, username: prof.username, avatar_url: prof.avatar_url })
+    }
+  }
+
+  let winnerId: string | null = null
+  if (tournament.status === 'completed') {
+    if (tournamentFormat === 'knockout') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const finalMatch = (sortedRounds[0] as any)?.matches?.find((m: any) => m.status === 'completed' && m.winner_id)
+      winnerId = finalMatch?.winner_id ?? null
+    } else {
+      const standings = calcStandings(completedMatches, tournamentFormat, cardProfileMap)
+      winnerId = standings[0]?.id ?? null
+    }
+  }
+
+  const topScorer = tournament.status === 'completed'
+    ? calcTopScorer(completedMatches, cardProfileMap)
+    : null
+  const topScorerId = topScorer?.id ?? null
+
+  const isWinner = !!user && !!winnerId && user.id === winnerId
+  const isTopScorer = !!user && !!topScorerId && user.id === topScorerId
+  const showCards = isOrganizer || isWinner || isTopScorer
 
   return (
     <div className="page-container">
@@ -130,7 +173,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             {isOrganizer && (
               <Link
                 href={`/tournaments/${params.id}/manage`}
@@ -147,6 +190,13 @@ export default async function TournamentDetailPage({ params }: PageProps) {
               >
                 Join Tournament
               </Link>
+            )}
+            {showCards && tournament.status === 'completed' && (
+              <CardDownloadButtons
+                tournamentId={params.id}
+                showWinner={isOrganizer || isWinner}
+                showTopScorer={isOrganizer || isTopScorer}
+              />
             )}
           </div>
         </div>

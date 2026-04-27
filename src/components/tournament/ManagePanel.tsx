@@ -2,9 +2,10 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, Play, Trash2, UserPlus, ExternalLink, CheckCircle } from 'lucide-react'
+import { Share2, Play, Trash2, UserPlus, ExternalLink, CheckCircle, ClipboardEdit } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 import { InviteModal } from './InviteModal'
 import { ParticipantList } from './ParticipantList'
 import { TournamentStatusBadge, MatchStatusBadge } from '@/components/ui/Badge'
@@ -30,9 +31,15 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
   const [adding, setAdding] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Per-match confirm state
+  // Per-match confirm state (awaiting_confirmation)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [confirmErrors, setConfirmErrors] = useState<Record<string, string>>({})
+
+  // Per-match manual entry state (scheduled matches)
+  const [enteringId, setEnteringId] = useState<string | null>(null)
+  const [manualScores, setManualScores] = useState<Record<string, { p1: string; p2: string }>>({})
+  const [manualErrors, setManualErrors] = useState<Record<string, string>>({})
+  const [submittingManualId, setSubmittingManualId] = useState<string | null>(null)
 
   const isFull = participants.length >= tournament.max_participants
 
@@ -92,7 +99,39 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
     router.refresh()
   }
 
-  const activeMatches = matches.filter((m) => m.status !== 'scheduled' || m.player1_id || m.player2_id)
+  async function enterResult(matchId: string) {
+    const scores = manualScores[matchId]
+    const p1 = parseInt(scores?.p1 ?? '', 10)
+    const p2 = parseInt(scores?.p2 ?? '', 10)
+    if (isNaN(p1) || isNaN(p2) || p1 < 0 || p2 < 0) {
+      setManualErrors((prev) => ({ ...prev, [matchId]: 'Enter valid non-negative scores.' }))
+      return
+    }
+    setManualErrors((prev) => ({ ...prev, [matchId]: '' }))
+    setSubmittingManualId(matchId)
+    const res = await fetch(`/api/matches/${matchId}/confirm`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player1_score: p1, player2_score: p2 }),
+    })
+    const data = await res.json()
+    setSubmittingManualId(null)
+    if (!res.ok) {
+      setManualErrors((prev) => ({ ...prev, [matchId]: data.error }))
+      return
+    }
+    setEnteringId(null)
+    router.refresh()
+  }
+
+  const activeMatches = matches.filter((m) => {
+    if (m.status === 'completed') return true
+    if (m.status === 'awaiting_confirmation') return true
+    // scheduled: show only if at least both player slots are filled (by id or name)
+    const p1 = m.player1_id ?? m.player1_name
+    const p2 = m.player2_id ?? m.player2_name
+    return p1 !== null && p2 !== null
+  })
 
   return (
     <div className="flex flex-col gap-6">
@@ -203,6 +242,10 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                   : null
               const isConfirming = confirmingId === m.id
               const confirmError = confirmErrors[m.id]
+              const isEntering = enteringId === m.id
+              const isSubmittingManual = submittingManualId === m.id
+              const manualError = manualErrors[m.id]
+              const hasPlayers = (m.player1_id ?? m.player1_name) !== null && (m.player2_id ?? m.player2_name) !== null
 
               return (
                 <div
@@ -273,6 +316,74 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                         <CheckCircle className="h-3.5 w-3.5" />
                         {isConfirming ? 'Confirming…' : 'Confirm Result'}
                       </button>
+                    </div>
+                  )}
+
+                  {/* Manual result entry — for scheduled matches where no score was submitted */}
+                  {m.status === 'scheduled' && hasPlayers && (
+                    <div>
+                      {!isEntering ? (
+                        <button
+                          onClick={() => {
+                            setEnteringId(m.id)
+                            setManualScores((prev) => ({ ...prev, [m.id]: prev[m.id] ?? { p1: '', p2: '' } }))
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors"
+                        >
+                          <ClipboardEdit className="h-3.5 w-3.5" />
+                          Enter result manually
+                        </button>
+                      ) : (
+                        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 flex flex-col gap-3">
+                          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">Enter Result</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">{p1}</p>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="99"
+                                placeholder="0"
+                                value={manualScores[m.id]?.p1 ?? ''}
+                                onChange={(e) => setManualScores((prev) => ({ ...prev, [m.id]: { ...prev[m.id], p1: e.target.value } }))}
+                                className="text-center font-bold"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">{p2}</p>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="99"
+                                placeholder="0"
+                                value={manualScores[m.id]?.p2 ?? ''}
+                                onChange={(e) => setManualScores((prev) => ({ ...prev, [m.id]: { ...prev[m.id], p2: e.target.value } }))}
+                                className="text-center font-bold"
+                              />
+                            </div>
+                          </div>
+                          {manualError && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{manualError}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => enterResult(m.id)}
+                              disabled={isSubmittingManual}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {isSubmittingManual ? 'Saving…' : 'Confirm & Save'}
+                            </button>
+                            <button
+                              onClick={() => setEnteringId(null)}
+                              disabled={isSubmittingManual}
+                              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-2"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

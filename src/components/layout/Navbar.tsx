@@ -34,16 +34,18 @@ export function Navbar({ user, profile }: NavbarProps) {
   ]
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-gray-200/80 dark:border-gray-800/80 bg-white/85 dark:bg-gray-950/85 backdrop-blur-lg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-14 items-center justify-between gap-4">
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 text-brand-500 font-bold text-lg shrink-0"
+            className="flex items-center gap-2 font-extrabold text-lg shrink-0 group"
           >
-            <Trophy className="h-5 w-5" />
-            <span className="hidden sm:inline">eFootball Cup</span>
+            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-sm group-hover:shadow-brand-500/30 group-hover:shadow-md transition-shadow">
+              <Trophy className="h-4 w-4 text-white" />
+            </div>
+            <span className="hidden sm:inline gradient-text">eFootball Cup</span>
           </Link>
 
           {/* Desktop nav */}

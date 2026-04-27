@@ -208,7 +208,12 @@ CREATE INDEX IF NOT EXISTS idx_result_submissions_match ON public.result_submiss
 -- ============================================================
 -- GRANTS (required for newer Supabase projects that don't auto-grant)
 -- ============================================================
-GRANT USAGE ON SCHEMA public TO anon, authenticated;
+GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
+
+-- service_role needs full table access to bypass RLS from API routes
+GRANT ALL ON ALL TABLES    IN SCHEMA public TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
+GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
 GRANT SELECT                         ON public.profiles           TO anon, authenticated;
 GRANT INSERT, UPDATE                 ON public.profiles           TO authenticated;

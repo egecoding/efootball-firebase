@@ -80,27 +80,28 @@ export default async function DashboardPage() {
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3 mb-8">
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
-          <p className="text-2xl font-extrabold text-brand-500">{wins}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wins</p>
+        <div className="rounded-xl border border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-900 px-4 py-4 text-center">
+          <p className="text-3xl font-extrabold text-brand-500 tabular-nums">{wins}</p>
+          <p className="text-xs font-medium text-green-600 dark:text-green-400 mt-1 uppercase tracking-wider">Wins</p>
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
-          <p className="text-2xl font-extrabold text-red-500">{losses}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Losses</p>
+        <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-white dark:from-red-900/20 dark:to-gray-900 px-4 py-4 text-center">
+          <p className="text-3xl font-extrabold text-red-500 tabular-nums">{losses}</p>
+          <p className="text-xs font-medium text-red-500 dark:text-red-400 mt-1 uppercase tracking-wider">Losses</p>
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-center">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900 px-4 py-4 text-center">
           {winRate !== null ? (
             <>
-              <p className="text-2xl font-extrabold text-gray-900 dark:text-white flex items-center justify-center gap-1">
-                <TrendingUp className="h-5 w-5 text-brand-500" />
+              <p className="text-3xl font-extrabold text-gray-900 dark:text-white tabular-nums flex items-center justify-center gap-1">
                 {winRate}%
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Win rate</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider flex items-center justify-center gap-1">
+                <TrendingUp className="h-3 w-3 text-brand-500" /> Win rate
+              </p>
             </>
           ) : (
             <>
-              <p className="text-2xl font-extrabold text-gray-400">—</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Win rate</p>
+              <p className="text-3xl font-extrabold text-gray-300 dark:text-gray-600">—</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">Win rate</p>
             </>
           )}
         </div>
@@ -124,13 +125,19 @@ export default async function DashboardPage() {
                 <Link
                   key={m.id}
                   href={`/matches/${m.id}`}
-                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 hover:border-brand-400 dark:hover:border-brand-600 transition-colors"
+                  className="flex items-center justify-between gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 hover:border-brand-400/60 dark:hover:border-brand-600/60 hover:shadow-sm transition-all group"
                 >
-                  <div className="min-w-0">
-                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{tournamentTitle}</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                      Match #{m.match_number} · vs {opponentName}
-                    </p>
+                  <div className="min-w-0 flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-lg bg-brand-500/10 flex items-center justify-center shrink-0">
+                      <Swords className="h-4 w-4 text-brand-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-gray-400 dark:text-gray-500 truncate">{tournamentTitle}</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                        vs {opponentName}
+                        <span className="ml-1.5 text-xs font-normal text-gray-400">#{m.match_number}</span>
+                      </p>
+                    </div>
                   </div>
                   <MatchStatusBadge status={m.status} />
                 </Link>

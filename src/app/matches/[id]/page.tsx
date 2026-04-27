@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
+import { GuestResultForm } from '@/components/match/GuestResultForm'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Match, MatchWithPlayers, Profile } from '@/types/database'
@@ -14,21 +15,36 @@ interface PageProps {
 
 export default async function MatchPage({ params }: PageProps) {
   const supabase = await createClient()
-  const admin = createAdminClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Use admin client so guests can view match details without a session
-  const { data: match } = await admin
-    .from('matches')
-    .select(
-      'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
-    )
-    .eq('id', params.id)
-    .single()
+  // Use admin client so guests can view match details without a session.
+  // Fall back to the regular client if the admin client fails (missing env var or schema permissions).
+  const MATCH_SELECT = 'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
 
-  if (!match) notFound()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let match: any = null
+
+  try {
+    const admin = createAdminClient()
+    const { data, error } = await admin.from('matches').select(MATCH_SELECT).eq('id', params.id).single()
+    if (!error) {
+      match = data
+    } else if (error.code === 'PGRST116') {
+      notFound()
+    }
+    // If other error (e.g. permission denied), fall through to regular client below
+  } catch {
+    // createAdminClient threw — fall through
+  }
+
+  // Fallback: regular client (uses user session / RLS; works for public tournaments)
+  if (!match) {
+    const { data, error } = await supabase.from('matches').select(MATCH_SELECT).eq('id', params.id).single()
+    if (error?.code === 'PGRST116' || !data) notFound()
+    match = data
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedMatch = match as any as Match & { player1_name?: string | null; player2_name?: string | null }
@@ -38,7 +54,7 @@ export default async function MatchPage({ params }: PageProps) {
   )
 
   const { data: profiles } = playerIds.length
-    ? await admin
+    ? await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url, wins, losses, created_at, updated_at')
         .in('id', playerIds)
@@ -56,7 +72,7 @@ export default async function MatchPage({ params }: PageProps) {
   const p1DisplayName = p1?.display_name ?? p1?.username ?? typedMatch.player1_name ?? 'Player 1'
   const p2DisplayName = p2?.display_name ?? p2?.username ?? typedMatch.player2_name ?? 'Player 2'
 
-  const { data: tournament } = await admin
+  const { data: tournament } = await supabase
     .from('tournaments')
     .select('title, id, organizer_id')
     .eq('id', typedMatch.tournament_id)
@@ -76,13 +92,18 @@ export default async function MatchPage({ params }: PageProps) {
 
   let screenshotSignedUrl: string | null = null
   if (typedMatch.screenshot_url) {
-    const { data: signed } = await admin.storage
-      .from('screenshots')
-      .createSignedUrl(typedMatch.screenshot_url, 60 * 60)
-    screenshotSignedUrl = signed?.signedUrl ?? null
+    try {
+      const admin = createAdminClient()
+      const { data: signed } = await admin.storage
+        .from('screenshots')
+        .createSignedUrl(typedMatch.screenshot_url, 60 * 60)
+      screenshotSignedUrl = signed?.signedUrl ?? null
+    } catch {
+      // Screenshot unavailable if admin client not set up — non-fatal
+    }
   }
 
-  const { data: round } = await admin
+  const { data: round } = await supabase
     .from('rounds')
     .select('round_name')
     .eq('id', typedMatch.round_id)
@@ -180,7 +201,7 @@ export default async function MatchPage({ params }: PageProps) {
               </p>
             )}
 
-            {/* Result form — players only, not organizers */}
+            {/* Result form — logged-in players only */}
             {isPlayer && canSubmit && user ? (
               <ResultForm
                 match={typedMatch as unknown as MatchWithPlayers}
@@ -189,6 +210,17 @@ export default async function MatchPage({ params }: PageProps) {
                 player2Profile={p2ForForm}
               />
             ) : null}
+
+            {/* Guest result form — for players who joined via invite link (no account) */}
+            {!user && (
+              <GuestResultForm
+                matchId={typedMatch.id}
+                tournamentId={typedMatch.tournament_id}
+                player1Name={typedMatch.player1_name ?? null}
+                player2Name={typedMatch.player2_name ?? null}
+                status={typedMatch.status}
+              />
+            )}
           </div>
         </div>
       </div>

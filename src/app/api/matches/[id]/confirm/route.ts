@@ -3,10 +3,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 
 // POST /api/matches/[id]/confirm
-// Organizer-only: finalizes a match using the scores already submitted by the player.
-// No score input required — just confirms what the player submitted.
+// Organizer-only: finalizes a match.
+// - If match is awaiting_confirmation: uses already-submitted scores (body ignored).
+// - If match is scheduled: requires player1_score and player2_score in body (manual entry).
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient()
@@ -39,16 +40,33 @@ export async function POST(
     return NextResponse.json({ error: 'Only the organizer can confirm results' }, { status: 403 })
   }
 
-  if (match.status !== 'awaiting_confirmation') {
-    return NextResponse.json({ error: 'Match is not awaiting confirmation' }, { status: 409 })
+  if (!['scheduled', 'awaiting_confirmation'].includes(match.status)) {
+    return NextResponse.json({ error: 'Match cannot be confirmed in its current state' }, { status: 409 })
   }
 
-  if (match.player1_score === null || match.player2_score === null) {
-    return NextResponse.json({ error: 'No scores submitted yet' }, { status: 409 })
-  }
+  let p1Score: number
+  let p2Score: number
 
-  const p1Score = match.player1_score as number
-  const p2Score = match.player2_score as number
+  if (match.status === 'scheduled') {
+    // Organizer is manually entering scores — require them in the request body
+    const body = await req.json().catch(() => ({}))
+    const { player1_score, player2_score } = body
+    if (typeof player1_score !== 'number' || typeof player2_score !== 'number') {
+      return NextResponse.json({ error: 'player1_score and player2_score are required' }, { status: 400 })
+    }
+    if (player1_score < 0 || player2_score < 0) {
+      return NextResponse.json({ error: 'Scores must be non-negative' }, { status: 400 })
+    }
+    p1Score = player1_score
+    p2Score = player2_score
+  } else {
+    // awaiting_confirmation — use the scores already stored on the match
+    if (match.player1_score === null || match.player2_score === null) {
+      return NextResponse.json({ error: 'No scores submitted yet' }, { status: 409 })
+    }
+    p1Score = match.player1_score as number
+    p2Score = match.player2_score as number
+  }
 
   if (p1Score === p2Score && tournament.format === 'knockout') {
     return NextResponse.json({ error: 'Cannot confirm a draw in a knockout tournament' }, { status: 400 })
@@ -61,6 +79,8 @@ export async function POST(
   await admin
     .from('matches')
     .update({
+      player1_score: p1Score,
+      player2_score: p2Score,
       winner_id,
       status: 'completed',
       submitted_by: user.id,
@@ -80,10 +100,25 @@ export async function POST(
       .update({ [idField]: winner_id ?? null, [nameField]: winnerName ?? null, status: 'scheduled' })
       .eq('id', match.next_match_id)
   } else if (!match.next_match_id) {
-    await admin
-      .from('tournaments')
-      .update({ status: 'completed' })
-      .eq('id', match.tournament_id)
+    // Knockout: no next match means this was the final — done immediately.
+    // League / round-robin: every match has no next_match_id, so only mark
+    // complete once there are zero non-completed matches left.
+    let allDone = true
+    if (tournament.format !== 'knockout') {
+      const { data: remaining } = await admin
+        .from('matches')
+        .select('id')
+        .eq('tournament_id', match.tournament_id)
+        .neq('status', 'completed')
+        .limit(1)
+      allDone = !remaining || remaining.length === 0
+    }
+    if (allDone) {
+      await admin
+        .from('tournaments')
+        .update({ status: 'completed' })
+        .eq('id', match.tournament_id)
+    }
   }
 
   return NextResponse.json({ status: 'completed', winner_id })

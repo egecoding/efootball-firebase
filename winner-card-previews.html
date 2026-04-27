@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Winner Card Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #111;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+    gap: 20px;
+  }
+
+  p.note {
+    color: #555;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-align: center;
+  }
+
+  /* ── THE CARD ── */
+  .winner-card {
+    width: 420px;
+    min-height: 600px;
+    background: #000;
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border: 1px solid rgba(212,175,55,0.3);
+    box-shadow:
+      0 0 0 1px rgba(212,175,55,0.1),
+      0 0 60px rgba(212,175,55,0.15),
+      0 40px 100px rgba(0,0,0,0.8);
+  }
+
+  /* Stadium background glow layers */
+  .winner-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 70%, rgba(212,175,55,0.18) 0%, transparent 70%),
+      radial-gradient(ellipse 120% 40% at 50% 100%, rgba(180,120,0,0.25) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 30% at 20% 60%, rgba(255,200,0,0.06) 0%, transparent 50%),
+      radial-gradient(ellipse 60% 30% at 80% 60%, rgba(255,200,0,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Dot grid texture */
+  .winner-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle, rgba(212,175,55,0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Confetti particles ── */
+  .confetti {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .confetti span {
+    position: absolute;
+    display: block;
+    border-radius: 1px;
+    animation: fall linear infinite;
+    opacity: 0;
+  }
+  @keyframes fall {
+    0%   { transform: translateY(-20px) rotate(0deg);   opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 0.8; }
+    100% { transform: translateY(620px) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── Inner content ── */
+  .card-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 28px;
+    gap: 0;
+  }
+
+  /* Top header */
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .card-logo {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, #d4af37, #f5d76e);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .card-app-name {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #d4af37;
+  }
+  .card-tournament-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(212,175,55,0.5);
+    margin-bottom: 14px;
+  }
+
+  /* WINNER text */
+  .winner-text {
+    font-size: 88px;
+    font-weight: 900;
+    line-height: 0.9;
+    text-transform: uppercase;
+    letter-spacing: -3px;
+    background: linear-gradient(180deg, #ffe566 0%, #d4af37 45%, #8b6914 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    position: relative;
+    text-align: center;
+    filter: drop-shadow(0 0 20px rgba(212,175,55,0.5)) drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+    margin-bottom: 4px;
+  }
+  /* Brush stroke under WINNER */
+  .brush-stroke {
+    width: 300px;
+    height: 8px;
+    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.8), transparent);
+    border-radius: 4px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+  .brush-stroke::before {
+    content: '';
+    position: absolute;
+    inset: 2px 20px;
+    background: rgba(212,175,55,0.3);
+    border-radius: 4px;
+    filter: blur(4px);
+  }
+
+  /* Tagline left/right */
+  .taglines {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 8px;
+    margin-bottom: 16px;
+  }
+  .tagline-left, .tagline-right {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    line-height: 1.6;
+    color: rgba(212,175,55,0.7);
+    text-align: left;
+    position: relative;
+  }
+  .tagline-right { text-align: right; }
+  .tagline-left::before {
+    content: '';
+    display: block;
+    width: 24px; height: 2px;
+    background: rgba(212,175,55,0.5);
+    margin-bottom: 4px;
+  }
+  .tagline-right::after {
+    content: '';
+    display: block;
+    width: 24px; height: 2px;
+    background: rgba(212,175,55,0.5);
+    margin-top: 4px;
+    margin-left: auto;
+  }
+
+  /* Trophy + Player avatar area */
+  .player-section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  .trophy-icon {
+    font-size: 80px;
+    filter:
+      drop-shadow(0 0 30px rgba(212,175,55,0.8))
+      drop-shadow(0 0 60px rgba(212,175,55,0.4))
+      drop-shadow(0 8px 16px rgba(0,0,0,0.6));
+    animation: glow 2s ease-in-out infinite;
+    line-height: 1;
+    margin-bottom: -8px;
+  }
+  @keyframes glow {
+    0%, 100% { filter: drop-shadow(0 0 30px rgba(212,175,55,0.8)) drop-shadow(0 0 60px rgba(212,175,55,0.4)); }
+    50%       { filter: drop-shadow(0 0 50px rgba(212,175,55,1))   drop-shadow(0 0 80px rgba(212,175,55,0.6)); }
+  }
+
+  /* Avatar */
+  .player-avatar {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #1a1a1a, #333);
+    border: 3px solid #d4af37;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px; font-weight: 900; color: #d4af37;
+    box-shadow: 0 0 0 4px rgba(212,175,55,0.2), 0 0 30px rgba(212,175,55,0.3);
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .crown-badge {
+    position: absolute;
+    top: -14px;
+    font-size: 22px;
+    filter: drop-shadow(0 0 8px rgba(212,175,55,0.9));
+  }
+
+  /* Player name */
+  .player-name {
+    font-size: 30px;
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: -0.5px;
+    text-align: center;
+    text-shadow: 0 0 40px rgba(212,175,55,0.4), 0 2px 8px rgba(0,0,0,0.8);
+    margin-bottom: 4px;
+  }
+  .player-subtitle {
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: rgba(212,175,55,0.6);
+    margin-bottom: 20px;
+  }
+
+  /* Gold divider */
+  .gold-divider {
+    width: 100%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent);
+    margin-bottom: 16px;
+  }
+
+  /* Tournament info row */
+  .info-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 18px;
+    width: 100%;
+  }
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .info-value {
+    font-size: 18px;
+    font-weight: 900;
+    color: #d4af37;
+    tabular-nums: true;
+  }
+  .info-label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.35);
+  }
+  .info-sep {
+    width: 1px;
+    background: rgba(212,175,55,0.2);
+    align-self: stretch;
+    margin: 4px 0;
+  }
+
+  /* Tournament name box */
+  .tournament-box {
+    background: rgba(212,175,55,0.07);
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 8px;
+    padding: 8px 20px;
+    text-align: center;
+    margin-bottom: 18px;
+    width: 90%;
+  }
+  .tournament-box .t-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.5px;
+  }
+  .tournament-box .t-meta {
+    font-size: 9px;
+    color: rgba(212,175,55,0.55);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* Bottom tagline */
+  .bottom-tagline {
+    font-size: 9px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: rgba(212,175,55,0.4);
+    margin-bottom: 8px;
+  }
+
+  /* Watermark */
+  .watermark {
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: rgba(255,255,255,0.12);
+    text-transform: uppercase;
+  }
+
+  /* Firework sparks */
+  .spark {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 50%;
+    background: #d4af37;
+    animation: spark-anim 1.5s ease-out infinite;
+    opacity: 0;
+  }
+  @keyframes spark-anim {
+    0%   { transform: translate(0,0) scale(1); opacity: 1; }
+    100% { transform: var(--tx, translate(20px,-40px)) scale(0); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<p class="note">⚡ Winner Card Preview — This is what players will download</p>
+
+<div class="winner-card" id="card">
+
+  <!-- Confetti -->
+  <div class="confetti" id="confetti"></div>
+
+  <!-- Sparks -->
+  <div class="spark" style="top:15%;left:18%;--tx:translate(-30px,-50px);animation-delay:0s;"></div>
+  <div class="spark" style="top:15%;left:18%;--tx:translate(20px,-60px);animation-delay:0.2s;"></div>
+  <div class="spark" style="top:18%;right:20%;--tx:translate(30px,-45px);animation-delay:0.5s;"></div>
+  <div class="spark" style="top:18%;right:20%;--tx:translate(-20px,-55px);animation-delay:0.7s;"></div>
+  <div class="spark" style="top:60%;left:8%;--tx:translate(-25px,-40px);animation-delay:0.3s;background:#fff;"></div>
+  <div class="spark" style="top:60%;right:8%;--tx:translate(25px,-40px);animation-delay:0.9s;background:#fff;"></div>
+
+  <div class="card-inner">
+
+    <!-- Header -->
+    <div class="card-header">
+      <div class="card-logo">⚽</div>
+      <div class="card-app-name">eFootball Cup</div>
+    </div>
+    <div class="card-tournament-label">Tournament</div>
+
+    <!-- WINNER -->
+    <div class="winner-text">WINNER</div>
+    <div class="brush-stroke"></div>
+
+    <!-- Taglines -->
+    <div class="taglines">
+      <div class="tagline-left">THE<br>UNSTOPPABLE<br>FORCE</div>
+      <div class="tagline-right">VICTORY<br>IS<br>EARNED</div>
+    </div>
+
+    <!-- Player section -->
+    <div class="player-section">
+      <div class="trophy-icon">🏆</div>
+      <div class="player-avatar">
+        <div class="crown-badge">👑</div>
+        P
+      </div>
+      <div class="player-name">Philip Egesa</div>
+      <div class="player-subtitle">Champion · 2026</div>
+    </div>
+
+    <div class="gold-divider"></div>
+
+    <!-- Stats -->
+    <div class="info-row">
+      <div class="info-item">
+        <div class="info-value">8</div>
+        <div class="info-label">Players</div>
+      </div>
+      <div class="info-sep"></div>
+      <div class="info-item">
+        <div class="info-value">⚡</div>
+        <div class="info-label">Knockout</div>
+      </div>
+      <div class="info-sep"></div>
+      <div class="info-item">
+        <div class="info-value">5W</div>
+        <div class="info-label">Record</div>
+      </div>
+    </div>
+
+    <!-- Tournament box -->
+    <div class="tournament-box">
+      <div class="t-name">FIFA Ultimate Cup</div>
+      <div class="t-meta">April 27, 2026</div>
+    </div>
+
+    <!-- Bottom -->
+    <div class="bottom-tagline">Passion · Focus · Victory</div>
+    <div class="watermark">efootballcup.vercel.app</div>
+
+  </div>
+</div>
+
+<p class="note">Player avatar uses their profile photo · Everything is real tournament data</p>
+
+<script>
+  // Generate confetti
+  const confettiEl = document.getElementById('confetti')
+  const colors = ['#d4af37','#ffe566','#fff','#fbbf24','#f59e0b','#fcd34d','#f97316']
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('span')
+    const size = Math.random() * 5 + 2
+    s.style.cssText = `
+      left: ${Math.random() * 100}%;
+      top: ${-10}px;
+      width: ${size}px;
+      height: ${size * (Math.random() > 0.5 ? 2.5 : 1)}px;
+      background: ${colors[Math.floor(Math.random() * colors.length)]};
+      animation-duration: ${Math.random() * 4 + 3}s;
+      animation-delay: ${Math.random() * 5}s;
+      transform: rotate(${Math.random() * 360}deg);
+      border-radius: ${Math.random() > 0.5 ? '50%' : '1px'};
+    `
+    confettiEl.appendChild(s)
+  }
+</script>
+</body>
+</html>
