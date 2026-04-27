@@ -3,6 +3,7 @@ import { Trophy, Users, Shield, ChevronRight, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
+import { GuestTournamentsList } from '@/components/tournament/GuestTournamentsList'
 import type { TournamentWithOrganizer } from '@/types/database'
 
 export const revalidate = 60
@@ -194,6 +195,11 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* ── Guest: "Your Tournaments" (reads localStorage client-side) ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
+        <GuestTournamentsList />
+      </div>
 
       {/* ── Open tournaments ─────────────────────────────────── */}
       {tournaments && tournaments.length > 0 && (

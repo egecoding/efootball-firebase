@@ -168,7 +168,8 @@ CREATE TABLE IF NOT EXISTS public.matches (
   status           public.match_status NOT NULL DEFAULT 'pending',
   player1_name     TEXT,  -- display name for guest player 1 (when player1_id is NULL)
   player2_name     TEXT,  -- display name for guest player 2 (when player2_id is NULL)
-  screenshot_url   TEXT,
+  screenshot_url        TEXT,
+  ai_score_confidence   TEXT CHECK (ai_score_confidence IN ('high', 'low')),  -- set by Gemini after screenshot upload
   submitted_by     UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   next_match_id    UUID REFERENCES public.matches(id) ON DELETE SET NULL,
   next_match_slot  INTEGER CHECK (next_match_slot IN (1, 2)),

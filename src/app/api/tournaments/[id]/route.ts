@@ -10,7 +10,7 @@ export async function GET(
   const { data, error } = await supabase
     .from('tournaments')
     .select(
-      'id, organizer_id, title, description, game_name, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
+      'id, organizer_id, title, description, game_name, format, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
     )
     .eq('id', params.id)
     .single()

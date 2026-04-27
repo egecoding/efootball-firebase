@@ -231,7 +231,16 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
       {/* Match Results (in-progress / completed tournaments) */}
       {tournament.status !== 'open' && activeMatches.length > 0 && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 flex flex-col gap-3">
-          <h2 className="font-semibold text-gray-900 dark:text-white">Match Results</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-gray-900 dark:text-white">Match Results</h2>
+            <button
+              onClick={() => router.refresh()}
+              title="Refresh match data"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+            >
+              ↻ Refresh
+            </button>
+          </div>
           <div className="flex flex-col gap-3">
             {activeMatches.map((m) => {
               const p1 = m.player1_name ?? 'TBD'
@@ -300,11 +309,23 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                           className="w-full rounded border border-yellow-200 dark:border-yellow-700 object-contain max-h-48 mb-3"
                         />
                       </a>
-                      {scoreText && (
-                        <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-3 font-medium">
-                          Submitted score: {scoreText}
-                        </p>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        {scoreText && (
+                          <p className="text-xs text-yellow-700 dark:text-yellow-400 font-medium">
+                            Submitted score: {scoreText}
+                          </p>
+                        )}
+                        {m.ai_score_confidence === 'high' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 dark:bg-green-900/40 px-2 py-0.5 text-xs font-semibold text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800">
+                            ✓ AI verified
+                          </span>
+                        )}
+                        {m.ai_score_confidence === 'low' && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/40 px-2 py-0.5 text-xs font-semibold text-orange-700 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                            ⚠ AI couldn&apos;t read clearly
+                          </span>
+                        )}
+                      </div>
                       {confirmError && (
                         <p className="text-xs text-red-600 dark:text-red-400 mb-2">{confirmError}</p>
                       )}

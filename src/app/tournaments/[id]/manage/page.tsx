@@ -18,6 +18,7 @@ export type ManageMatch = {
   player2_score: number | null
   status: string
   screenshot_url: string | null
+  ai_score_confidence: string | null        // 'high' | 'low' | null — set by Gemini after screenshot upload
   screenshotSignedUrl: string | null        // from finalized match row
   submissionScreenshotSignedUrl: string | null // from result_submissions (pre-finalization)
   submittedByName: string | null            // who submitted the pending screenshot
@@ -49,7 +50,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       .order('joined_at', { ascending: true }),
     supabase
       .from('matches')
-      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, rounds(round_name)')
+      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, rounds(round_name)')
       .eq('tournament_id', params.id)
       .in('status', ['scheduled', 'awaiting_confirmation', 'completed'])
       .order('created_at', { ascending: true }),
@@ -135,6 +136,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       player2_score: m.player2_score,
       status: m.status,
       screenshot_url: m.screenshot_url,
+      ai_score_confidence: m.ai_score_confidence ?? null,
       screenshotSignedUrl,
       submissionScreenshotSignedUrl,
       submittedByName,
