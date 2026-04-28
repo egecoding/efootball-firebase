@@ -11,6 +11,16 @@ export const metadata: Metadata = {
   title: 'eFootball Cup — Tournament Manager',
   description:
     'Create and manage eFootball tournaments. Generate brackets, track matches, and compete with players worldwide.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'eFCup',
+  },
+  formatDetection: { telephone: false },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 }
 
 export default async function RootLayout({
@@ -35,6 +45,10 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
+      <head>
+        <meta name="theme-color" content="#09090b" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      </head>
       <body>
         <ThemeProvider>
           <Navbar user={user} profile={profile} />
