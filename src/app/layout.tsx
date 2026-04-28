@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
+import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
@@ -53,6 +54,7 @@ export default async function RootLayout({
         <ThemeProvider>
           <Navbar user={user} profile={profile} />
           <main>{children}</main>
+          <InstallPrompt />
         </ThemeProvider>
       </body>
     </html>
