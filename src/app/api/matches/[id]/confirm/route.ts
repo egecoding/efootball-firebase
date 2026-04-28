@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { sendPush } from '@/lib/push'
 
 // POST /api/matches/[id]/confirm
 // Organizer-only: finalizes a match.
@@ -91,6 +92,27 @@ export async function POST(
   if (winner_id) await admin.rpc('increment_wins', { uid: winner_id })
   if (loser_id) await admin.rpc('increment_losses', { uid: loser_id })
 
+  // Notify both players their result has been confirmed
+  const scoreStr = `${p1Score} – ${p2Score}`
+  sendPush([match.player1_id], {
+    title: '✅ Result confirmed',
+    body: isDraw
+      ? `Your match ended ${scoreStr} (draw)`
+      : match.player1_id === winner_id
+        ? `You won ${scoreStr} 🏆`
+        : `You lost ${scoreStr}`,
+    url: `/matches/${params.id}`,
+  })
+  sendPush([match.player2_id], {
+    title: '✅ Result confirmed',
+    body: isDraw
+      ? `Your match ended ${scoreStr} (draw)`
+      : match.player2_id === winner_id
+        ? `You won ${scoreStr} 🏆`
+        : `You lost ${scoreStr}`,
+    url: `/matches/${params.id}`,
+  })
+
   if (match.next_match_id && match.next_match_slot) {
     const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
     const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
@@ -99,6 +121,20 @@ export async function POST(
       .from('matches')
       .update({ [idField]: winner_id ?? null, [nameField]: winnerName ?? null, status: 'scheduled' })
       .eq('id', match.next_match_id)
+
+    // Notify both players in the next match that it's ready
+    const { data: nextMatch } = await admin
+      .from('matches')
+      .select('player1_id, player2_id, match_number')
+      .eq('id', match.next_match_id)
+      .single()
+    if (nextMatch) {
+      sendPush([nextMatch.player1_id, nextMatch.player2_id], {
+        title: '🎮 Next match ready',
+        body: `Your next match (#${nextMatch.match_number}) is scheduled. Good luck!`,
+        url: `/matches/${match.next_match_id}`,
+      })
+    }
   } else if (!match.next_match_id) {
     // Knockout: no next match means this was the final — done immediately.
     // League / round-robin: every match has no next_match_id, so only mark

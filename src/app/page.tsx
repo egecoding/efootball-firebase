@@ -76,6 +76,11 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ── Guest: "Your Tournaments" — shown immediately after hero so returning guests see it first ── */}
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
+        <GuestTournamentsList />
+      </div>
+
       {/* ── How it works ─────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-12">
@@ -195,11 +200,6 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
-
-      {/* ── Guest: "Your Tournaments" (reads localStorage client-side) ── */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
-        <GuestTournamentsList />
-      </div>
 
       {/* ── Open tournaments ─────────────────────────────────── */}
       {tournaments && tournaments.length > 0 && (

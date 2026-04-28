@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { sendPush } from '@/lib/push'
 
 export async function GET(
   _req: Request,
@@ -129,6 +130,13 @@ export async function PATCH(
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
     }
 
+    // Notify organizer a result is waiting
+    sendPush([tournament?.organizer_id], {
+      title: '⚽ Result submitted',
+      body: `A player submitted a match result — ready for your confirmation.`,
+      url: `/tournaments/${match.tournament_id}/manage`,
+    })
+
     return NextResponse.json({ status: 'awaiting_confirmation' })
   }
 
@@ -181,6 +189,11 @@ export async function PATCH(
       .from('matches')
       .update({ status: 'awaiting_confirmation' })
       .eq('id', params.id)
+    sendPush([tournament?.organizer_id], {
+      title: '⚽ Result submitted',
+      body: `A player submitted a match result — ready for your confirmation.`,
+      url: `/tournaments/${match.tournament_id}/manage`,
+    })
     return NextResponse.json({ status: 'awaiting_confirmation' })
   }
 

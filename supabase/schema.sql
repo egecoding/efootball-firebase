@@ -193,6 +193,19 @@ CREATE TRIGGER matches_updated_at
 -- ============================================================
 -- RESULT SUBMISSIONS
 -- ============================================================
+-- Push notification subscriptions (Web Push VAPID)
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  endpoint   TEXT NOT NULL,
+  p256dh     TEXT NOT NULL,
+  auth_key   TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, endpoint)
+);
+GRANT ALL ON public.push_subscriptions TO service_role;
+
+-- ============================================================
 CREATE TABLE IF NOT EXISTS public.result_submissions (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   match_id        UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,

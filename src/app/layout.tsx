@@ -4,6 +4,7 @@ import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
+import { PushPrompt } from '@/components/layout/PushPrompt'
 import { createClient } from '@/lib/supabase/server'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
@@ -47,7 +48,7 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
       <head>
-        <meta name="theme-color" content="#09090b" />
+        <meta name="theme-color" content="#22c55e" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body>
@@ -55,6 +56,7 @@ export default async function RootLayout({
           <Navbar user={user} profile={profile} />
           <main>{children}</main>
           <InstallPrompt />
+          <PushPrompt />
         </ThemeProvider>
       </body>
     </html>

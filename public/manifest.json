@@ -5,7 +5,7 @@
   "start_url": "/",
   "display": "standalone",
   "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "theme_color": "#22c55e",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
@@ -28,5 +28,33 @@
       "sizes": "180x180",
       "type": "image/png"
     }
-  ]
+  ],
+  "shortcuts": [
+    {
+      "name": "My Tournaments",
+      "short_name": "Tournaments",
+      "description": "View and manage your tournaments",
+      "url": "/tournaments"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Your stats and recent matches",
+      "url": "/dashboard"
+    }
+  ],
+  "share_target": {
+    "action": "/api/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["image/jpeg", "image/png", "image/webp", "image/*"]
+        }
+      ]
+    }
+  }
 }
