@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY ?? ''
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY ?? ''
-const vapidEmail = process.env.VAPID_EMAIL ?? 'mailto:admin@efootballcup.app'
+const rawEmail = process.env.VAPID_EMAIL ?? 'admin@efootballcup.app'
+const vapidEmail = rawEmail.startsWith('mailto:') ? rawEmail : `mailto:${rawEmail}`
 
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails(vapidEmail, vapidPublicKey, vapidPrivateKey)
