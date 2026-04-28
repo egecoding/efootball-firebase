@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   avatar_url    TEXT,
   wins          INTEGER NOT NULL DEFAULT 0,
   losses        INTEGER NOT NULL DEFAULT 0,
+  is_super_admin BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -195,13 +196,17 @@ CREATE TRIGGER matches_updated_at
 -- ============================================================
 -- Push notification subscriptions (Web Push VAPID)
 CREATE TABLE IF NOT EXISTS public.push_subscriptions (
-  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id    UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  endpoint   TEXT NOT NULL,
-  p256dh     TEXT NOT NULL,
-  auth_key   TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(user_id, endpoint)
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id        UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+  participant_id UUID REFERENCES public.participants(id) ON DELETE CASCADE,
+  endpoint       TEXT NOT NULL UNIQUE,
+  p256dh         TEXT NOT NULL,
+  auth_key       TEXT NOT NULL,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT push_subscriptions_owner_check CHECK (
+    (user_id IS NOT NULL AND participant_id IS NULL) OR
+    (user_id IS NULL AND participant_id IS NOT NULL)
+  )
 );
 GRANT ALL ON public.push_subscriptions TO service_role;
 

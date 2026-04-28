@@ -61,6 +61,11 @@ export default async function HomePage() {
             </Link>
           </div>
 
+          {/* ── Guest: nametag lookup + "Your Tournaments" ── */}
+          <div className="max-w-md mx-auto w-full mb-10">
+            <GuestTournamentsList />
+          </div>
+
           <div className="flex flex-wrap justify-center gap-3">
             {[
               { label: 'Knockout', emoji: '⚡' },
@@ -75,11 +80,6 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* ── Guest: "Your Tournaments" — shown immediately after hero so returning guests see it first ── */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-10">
-        <GuestTournamentsList />
-      </div>
 
       {/* ── How it works ─────────────────────────────────────── */}
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">

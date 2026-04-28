@@ -16,6 +16,7 @@ export interface Profile {
   avatar_url: string | null
   wins: number
   losses: number
+  is_super_admin: boolean
   created_at: string
   updated_at: string
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
   Trophy, Users, Calendar, Upload, CheckCircle, Clock, ImagePlus, X, Check,
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { TournamentStatusBadge } from '@/components/ui/Badge'
+import { GuestPushPrompt } from '@/components/layout/GuestPushPrompt'
+import { SaveLinkBanner } from '@/components/layout/SaveLinkBanner'
 import { BracketView } from '@/components/tournament/BracketView'
 import { ScheduleView } from '@/components/tournament/ScheduleView'
 import { StandingsTable } from '@/components/tournament/StandingsTable'
@@ -52,8 +54,9 @@ export function PlayerPortal({
   tournamentId,
 }: PlayerPortalProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
-  // Resolve identity: prefer server-supplied (logged-in user), fall back to localStorage (guest)
+  // Resolve identity: prefer server-supplied (logged-in user), fall back to URL ?pid= or localStorage (guest)
   const [participantId, setParticipantId] = useState<string | null>(userParticipantId)
   const [myName, setMyName] = useState<string | null>(null)
   const [myMatch, setMyMatch] = useState<ActiveMatch | null>(null)
@@ -72,9 +75,22 @@ export function PlayerPortal({
 
   useEffect(() => {
     let pid = participantId
+
     if (!pid) {
-      pid = localStorage.getItem(`participant_${tournamentId}`)
-      if (pid) setParticipantId(pid)
+      // Check URL ?pid= first (guest returning via personal link)
+      const urlPid = searchParams.get('pid')
+      if (urlPid) {
+        pid = urlPid
+        localStorage.setItem(`participant_${tournamentId}`, urlPid)
+        setParticipantId(urlPid)
+        // Strip pid from URL without reloading
+        const url = new URL(window.location.href)
+        url.searchParams.delete('pid')
+        window.history.replaceState({}, '', url.toString())
+      } else {
+        pid = localStorage.getItem(`participant_${tournamentId}`)
+        if (pid) setParticipantId(pid)
+      }
     }
 
     if (!pid) return
@@ -196,6 +212,12 @@ export function PlayerPortal({
 
   return (
     <div className="page-container">
+      {/* Guest push prompt — shown only to guest players (no account) */}
+      {!currentUserId && <GuestPushPrompt tournamentId={tournamentId} />}
+      {/* Save-link banner — shown once after first join */}
+      {!currentUserId && <SaveLinkBanner tournamentId={tournamentId} />}
+      {/* Identity reclaim — shown when guest has no stored identity */}
+      {!currentUserId && !participantId && <ReclaimIdentity tournamentId={tournamentId} onReclaimed={(pid) => setParticipantId(pid)} />}
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2 flex-wrap">
@@ -453,6 +475,90 @@ export function PlayerPortal({
           tournamentId={tournamentId}
         />
       </div>
+    </div>
+  )
+}
+
+// ── ReclaimIdentity ───────────────────────────────────────────────────────────
+
+function ReclaimIdentity({
+  tournamentId,
+  onReclaimed,
+}: {
+  tournamentId: string
+  onReclaimed: (pid: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleLookup(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    setLoading(true)
+    setError('')
+
+    const res = await fetch(
+      `/api/tournaments/${tournamentId}/reclaim?name=${encodeURIComponent(name.trim())}`
+    )
+    const data = await res.json()
+    setLoading(false)
+
+    if (!res.ok) {
+      setError(data.error ?? 'Not found')
+      return
+    }
+
+    localStorage.setItem(`participant_${tournamentId}`, data.participant_id)
+    onReclaimed(data.participant_id)
+    setOpen(false)
+  }
+
+  return (
+    <div className="mb-6">
+      {!open ? (
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border border-dashed border-gray-700 hover:border-brand-500/50 px-4 py-3 text-sm text-gray-500 hover:text-brand-400 transition-colors"
+        >
+          <span>🔍</span> Lost your link? Recover access with your name
+        </button>
+      ) : (
+        <div className="rounded-2xl border border-gray-800 bg-gray-900/60 p-4">
+          <p className="text-sm font-semibold text-gray-200 mb-1">Recover your access</p>
+          <p className="text-xs text-gray-500 mb-4">
+            Enter the exact nametag you used when you joined this tournament.
+          </p>
+          <form onSubmit={handleLookup} className="flex gap-2">
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. PhilEFC"
+              className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-500"
+              autoFocus
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 rounded-xl text-sm font-bold text-white transition-colors"
+            >
+              {loading ? '…' : 'Find me'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setOpen(false); setError('') }}
+              className="px-3 py-2 rounded-xl text-sm text-gray-500 hover:text-gray-300 hover:bg-white/5 transition-colors"
+            >
+              Cancel
+            </button>
+          </form>
+          {error && (
+            <p className="mt-2 text-xs text-red-400">{error} — check the spelling of your nametag.</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

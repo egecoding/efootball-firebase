@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
-import { sendPush } from '@/lib/push'
+import { sendPush, sendPushToParticipants } from '@/lib/push'
 
 // POST /api/matches/[id]/confirm
 // Organizer-only: finalizes a match.
@@ -92,8 +92,23 @@ export async function POST(
   if (winner_id) await admin.rpc('increment_wins', { uid: winner_id })
   if (loser_id) await admin.rpc('increment_losses', { uid: loser_id })
 
-  // Notify both players their result has been confirmed
+  // Notify both players their result has been confirmed (registered + guest)
   const scoreStr = `${p1Score} – ${p2Score}`
+
+  // Look up guest participant IDs by name for this tournament
+  const { data: guestParticipants } = await admin
+    .from('participants')
+    .select('id, name')
+    .eq('tournament_id', match.tournament_id)
+    .is('user_id', null)
+
+  const guestIdByName = Object.fromEntries(
+    (guestParticipants ?? []).map((p) => [p.name, p.id])
+  )
+
+  const p1GuestId = !match.player1_id && match.player1_name ? guestIdByName[match.player1_name] : null
+  const p2GuestId = !match.player2_id && match.player2_name ? guestIdByName[match.player2_name] : null
+
   sendPush([match.player1_id], {
     title: '✅ Result confirmed',
     body: isDraw
@@ -112,6 +127,16 @@ export async function POST(
         : `You lost ${scoreStr}`,
     url: `/matches/${params.id}`,
   })
+  if (p1GuestId) sendPushToParticipants([p1GuestId], {
+    title: '✅ Result confirmed',
+    body: isDraw ? `Your match ended ${scoreStr} (draw)` : `Match result: ${scoreStr}`,
+    url: `/tournaments/${match.tournament_id}/portal`,
+  })
+  if (p2GuestId) sendPushToParticipants([p2GuestId], {
+    title: '✅ Result confirmed',
+    body: isDraw ? `Your match ended ${scoreStr} (draw)` : `Match result: ${scoreStr}`,
+    url: `/tournaments/${match.tournament_id}/portal`,
+  })
 
   if (match.next_match_id && match.next_match_slot) {
     const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
@@ -122,10 +147,10 @@ export async function POST(
       .update({ [idField]: winner_id ?? null, [nameField]: winnerName ?? null, status: 'scheduled' })
       .eq('id', match.next_match_id)
 
-    // Notify both players in the next match that it's ready
+    // Notify both players in the next match that it's ready (registered + guest)
     const { data: nextMatch } = await admin
       .from('matches')
-      .select('player1_id, player2_id, match_number')
+      .select('player1_id, player2_id, player1_name, player2_name, match_number')
       .eq('id', match.next_match_id)
       .single()
     if (nextMatch) {
@@ -134,6 +159,15 @@ export async function POST(
         body: `Your next match (#${nextMatch.match_number}) is scheduled. Good luck!`,
         url: `/matches/${match.next_match_id}`,
       })
+      const nm1GuestId = !nextMatch.player1_id && nextMatch.player1_name ? guestIdByName[nextMatch.player1_name] : null
+      const nm2GuestId = !nextMatch.player2_id && nextMatch.player2_name ? guestIdByName[nextMatch.player2_name] : null
+      if (nm1GuestId || nm2GuestId) {
+        sendPushToParticipants([nm1GuestId, nm2GuestId].filter(Boolean) as string[], {
+          title: '🎮 Next match ready',
+          body: `Your next match (#${nextMatch.match_number}) is scheduled. Good luck!`,
+          url: `/tournaments/${match.tournament_id}/portal`,
+        })
+      }
     }
   } else if (!match.next_match_id) {
     // Knockout: no next match means this was the final — done immediately.

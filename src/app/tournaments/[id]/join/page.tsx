@@ -20,13 +20,23 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [personalLink, setPersonalLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     ;(async () => {
       const { data: { user } } = await getClient().auth.getUser()
       setIsGuest(!user)
+
+      // If guest already joined this tournament, go straight to their portal
+      if (!user) {
+        const existing = localStorage.getItem(`participant_${params.id}`)
+        if (existing) {
+          router.replace(`/tournaments/${params.id}/portal`)
+        }
+      }
     })()
-  }, [])
+  }, [params.id, router])
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
@@ -53,10 +63,18 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
     // Store participant_id so the portal can identify this player (guest or registered)
     if (data.participant_id) {
       localStorage.setItem(`participant_${params.id}`, data.participant_id)
+      if (isGuest) {
+        // Build a personal link guests can bookmark to return later
+        const link = `${window.location.origin}/tournaments/${params.id}/portal?pid=${data.participant_id}`
+        setPersonalLink(link)
+      }
     }
 
     setSuccess(true)
-    setTimeout(() => router.push(`/tournaments/${params.id}/portal`), 2200)
+    const portalUrl = isGuest
+      ? `/tournaments/${params.id}/portal?newjoin=1`
+      : `/tournaments/${params.id}/portal`
+    setTimeout(() => router.push(portalUrl), 2200)
   }
 
   return (
@@ -68,21 +86,8 @@ export default function JoinTournamentPage({ params, searchParams }: PageProps) 
           <div className="text-center animate-bounce-in">
             <div className="inline-flex items-center justify-center mb-6">
               <svg viewBox="0 0 80 80" className="h-24 w-24" fill="none">
-                <circle
-                  cx="40" cy="40" r="36"
-                  stroke="#22c55e"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  className="animate-draw-circle"
-                />
-                <polyline
-                  points="22,40 34,52 58,28"
-                  stroke="#22c55e"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="animate-draw-check"
-                />
+                <circle cx="40" cy="40" r="36" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" className="animate-draw-circle" />
+                <polyline points="22,40 34,52 58,28" stroke="#22c55e" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className="animate-draw-check" />
               </svg>
             </div>
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">You&apos;re in!</h2>

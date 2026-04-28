@@ -2,12 +2,19 @@
 
 import { useEffect } from 'react'
 
-// Silently auto-subscribes logged-in users to push notifications on app load.
+interface Props {
+  tournamentId: string
+}
+
+// Silently auto-subscribes guest players to push notifications on portal load.
 // No banner shown — browser's native permission dialog fires automatically.
-export function PushPrompt() {
+export function GuestPushPrompt({ tournamentId }: Props) {
   useEffect(() => {
     if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return
     if (Notification.permission === 'denied') return
+
+    const participantId = localStorage.getItem(`participant_${tournamentId}`)
+    if (!participantId) return
 
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
     if (!vapidKey) return
@@ -16,13 +23,13 @@ export function PushPrompt() {
       try {
         const reg = await navigator.serviceWorker.ready
 
-        // If already subscribed, re-save to ensure it's in the DB
+        // If already subscribed, just make sure it's saved server-side
         const existing = await reg.pushManager.getSubscription()
         if (existing) {
           await fetch('/api/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(existing.toJSON()),
+            body: JSON.stringify({ ...existing.toJSON(), participantId }),
           })
           return
         }
@@ -38,13 +45,13 @@ export function PushPrompt() {
         await fetch('/api/push/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(sub.toJSON()),
+          body: JSON.stringify({ ...sub.toJSON(), participantId }),
         })
-      } catch { /* silently ignore */ }
+      } catch { /* silently ignore — e.g. SW not yet active */ }
     }
 
     subscribe()
-  }, [])
+  }, [tournamentId])
 
   return null
 }

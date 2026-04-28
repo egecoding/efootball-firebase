@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { Trophy, Sun, Moon, Menu, X, LogOut, User } from 'lucide-react'
+import { Trophy, Sun, Moon, Menu, X, LogOut, User, Shield } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -31,6 +31,7 @@ export function Navbar({ user, profile }: NavbarProps) {
   const navLinks = [
     { href: '/tournaments', label: 'Tournaments' },
     ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
+    ...(profile?.is_super_admin ? [{ href: '/admin', label: 'Admin' }] : []),
   ]
 
   return (
@@ -148,6 +149,16 @@ export function Navbar({ user, profile }: NavbarProps) {
                 <User className="h-4 w-4" />
                 Profile
               </Link>
+              {profile?.is_super_admin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center gap-2 text-sm font-medium text-brand-400 py-1"
+                >
+                  <Shield className="h-4 w-4" />
+                  Admin Panel
+                </Link>
+              )}
               <button
                 onClick={handleSignOut}
                 className="flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400 py-1"
