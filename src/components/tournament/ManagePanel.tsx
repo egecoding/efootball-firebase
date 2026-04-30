@@ -224,6 +224,40 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
     return Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
   })()
 
+  // group_knockout: per-group standings tables
+  interface GroupStandingRow { name: string; pts: number; played: number; wins: number; draws: number; losses: number; gf: number; ga: number; gd: number }
+  const groupStandingsByGroup = (() => {
+    if (tournament.format !== 'group_knockout' || groupMatches.length === 0) return new Map<string, GroupStandingRow[]>()
+    const result = new Map<string, Map<string, GroupStandingRow>>()
+    const getKey = (id: string | null, name: string | null) => id ?? name ?? '?'
+    const getRow = (groupName: string, id: string | null, name: string | null): GroupStandingRow => {
+      if (!result.has(groupName)) result.set(groupName, new Map())
+      const groupMap = result.get(groupName)!
+      const k = getKey(id, name)
+      if (!groupMap.has(k)) groupMap.set(k, { name: name ?? id ?? '?', pts: 0, played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, gd: 0 })
+      return groupMap.get(k)!
+    }
+    for (const m of groupMatches) {
+      if (!m.group_name) continue
+      const s1 = m.player1_score ?? 0
+      const s2 = m.player2_score ?? 0
+      const p1 = getRow(m.group_name, m.player1_id, m.player1_name)
+      const p2 = getRow(m.group_name, m.player2_id, m.player2_name)
+      if (m.status !== 'completed' && m.status !== 'walkover') continue
+      p1.played++; p2.played++
+      p1.gf += s1; p1.ga += s2; p1.gd = p1.gf - p1.ga
+      p2.gf += s2; p2.ga += s1; p2.gd = p2.gf - p2.ga
+      if (s1 > s2) { p1.pts += 3; p1.wins++; p2.losses++ }
+      else if (s2 > s1) { p2.pts += 3; p2.wins++; p1.losses++ }
+      else { p1.pts += 1; p2.pts += 1; p1.draws++; p2.draws++ }
+    }
+    const sorted = new Map<string, GroupStandingRow[]>()
+    for (const [gName, gMap] of Array.from(result.entries()).sort(([a], [b]) => a.localeCompare(b))) {
+      sorted.set(gName, Array.from(gMap.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf || b.wins - a.wins))
+    }
+    return sorted
+  })()
+
   const activeMatches = matches.filter((m) => {
     if (m.status === 'completed') return true
     if (m.status === 'awaiting_confirmation') return true
@@ -554,6 +588,61 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* Group Stage Standings — one table per group */}
+      {tournament.format === 'group_knockout' && groupStandingsByGroup.size > 0 && (
+        <div className="flex flex-col gap-4">
+          {Array.from(groupStandingsByGroup.entries()).map(([groupName, rows]) => {
+            const advancePerGroup = rows.length <= 2 ? 1 : 2
+            return (
+              <div key={groupName} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+                <h2 className="font-semibold text-gray-900 dark:text-white mb-3">Group {groupName}</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                        <th className="text-left py-1.5 pr-2 font-medium w-6">#</th>
+                        <th className="text-left py-1.5 pr-2 font-medium">Player</th>
+                        <th className="text-center py-1.5 px-1 font-medium">P</th>
+                        <th className="text-center py-1.5 px-1 font-medium">W</th>
+                        <th className="text-center py-1.5 px-1 font-medium">D</th>
+                        <th className="text-center py-1.5 px-1 font-medium">L</th>
+                        <th className="text-center py-1.5 px-1 font-medium">GD</th>
+                        <th className="text-center py-1.5 px-1 font-semibold text-brand-500">Pts</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((s, i) => (
+                        <tr key={s.name} className={`border-b border-gray-50 dark:border-gray-800/60 ${
+                          i < advancePerGroup ? 'bg-green-50/50 dark:bg-green-900/10' : ''
+                        }`}>
+                          <td className="py-1.5 pr-2 text-gray-400">{i + 1}</td>
+                          <td className="py-1.5 pr-2 font-medium text-gray-900 dark:text-white truncate max-w-[120px]">
+                            {s.name}
+                            {i < advancePerGroup && (
+                              <span className="ml-1 text-[10px] text-green-600 dark:text-green-400 font-semibold">↑</span>
+                            )}
+                          </td>
+                          <td className="text-center py-1.5 px-1 text-gray-500">{s.played}</td>
+                          <td className="text-center py-1.5 px-1 text-gray-500">{s.wins}</td>
+                          <td className="text-center py-1.5 px-1 text-gray-500">{s.draws}</td>
+                          <td className="text-center py-1.5 px-1 text-gray-500">{s.losses}</td>
+                          <td className="text-center py-1.5 px-1 text-gray-500">{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                          <td className="text-center py-1.5 px-1 font-bold text-brand-600 dark:text-brand-400">{s.pts}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <p className="mt-2 text-[10px] text-gray-400">
+                    <span className="inline-block w-2 h-2 rounded-sm bg-green-200 dark:bg-green-900/40 mr-1" />
+                    Top {advancePerGroup} advance to knockout stage
+                  </p>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

@@ -42,7 +42,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       supabase
         .from('rounds')
         .select(
-          'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at)'
+          'id, tournament_id, round_number, round_name, phase, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, group_name, bracket)'
         )
         .eq('tournament_id', params.id)
         .order('round_number', { ascending: true }),
@@ -104,6 +104,24 @@ export default async function TournamentDetailPage({ params }: PageProps) {
 
   // ── Card download eligibility ──
   const tournamentFormat = (typedTournament as unknown as { format?: string }).format ?? 'knockout'
+
+  // ── Per-group standings (group_knockout) ──
+  type GroupMatch = RawMatch & { group_name?: string | null; bracket?: string | null }
+  const groupMatchesByGroup = new Map<string, GroupMatch[]>()
+  if (tournamentFormat === 'group_knockout') {
+    for (const m of allMatches as GroupMatch[]) {
+      if (m.group_name && m.status === 'completed') {
+        const arr = groupMatchesByGroup.get(m.group_name) ?? []
+        arr.push(m)
+        groupMatchesByGroup.set(m.group_name, arr)
+      }
+    }
+  }
+
+  // ── CL league-phase matches ──
+  const clLeagueMatches = tournamentFormat === 'champions_league'
+    ? (allMatches as GroupMatch[]).filter((m) => m.bracket === 'league')
+    : []
   const completedMatches: MatchRow[] = allMatches.filter(
     (m) => (m as unknown as { status?: string }).status === 'completed'
   ) as unknown as MatchRow[]
@@ -253,7 +271,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       {/* Bracket / Schedule */}
       {rounds && rounds.length > 0 ? (
         <div className="mb-10">
-          {(typedTournament as unknown as { format?: string }).format === 'knockout' || !(typedTournament as unknown as { format?: string }).format ? (
+          {tournamentFormat === 'knockout' || tournamentFormat === 'double_elimination' ? (
             <>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
               <BracketView
@@ -263,16 +281,73 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 profileMap={profileMap}
               />
             </>
+          ) : tournamentFormat === 'group_knockout' ? (
+            <>
+              {/* Per-group standings */}
+              {groupMatchesByGroup.size > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Group Standings</h2>
+                  <div className="flex flex-col gap-4">
+                    {Array.from(groupMatchesByGroup.entries())
+                      .sort(([a], [b]) => a.localeCompare(b))
+                      .map(([groupName, gMatches]) => {
+                        const advancePerGroup = gMatches.length <= 1 ? 1 : 2
+                        return (
+                          <div key={groupName} className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
+                            <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+                              <span className="text-sm font-semibold text-gray-900 dark:text-white">Group {groupName}</span>
+                              <span className="text-xs text-gray-400">Top {advancePerGroup} advance</span>
+                            </div>
+                            <StandingsTable
+                              matches={gMatches as unknown as MatchWithPlayers[]}
+                              participants={participants as unknown as ParticipantWithProfile[]}
+                              format="round_robin"
+                            />
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Schedule</h2>
+              <ScheduleView
+                rounds={rounds as unknown as RoundWithMatches[]}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
+            </>
+          ) : tournamentFormat === 'champions_league' ? (
+            <>
+              {/* CL league-phase table */}
+              {clLeagueMatches.length > 0 && participants && participants.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">League Standings</h2>
+                  <StandingsTable
+                    matches={clLeagueMatches as unknown as MatchWithPlayers[]}
+                    participants={participants as unknown as ParticipantWithProfile[]}
+                    format="league"
+                  />
+                </div>
+              )}
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Schedule</h2>
+              <ScheduleView
+                rounds={rounds as unknown as RoundWithMatches[]}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
+            </>
           ) : (
             <>
-              {/* Standings */}
+              {/* round_robin / league */}
               {participants && participants.length > 0 && (
                 <div className="mb-8">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Standings</h2>
                   <StandingsTable
                     matches={(rounds as unknown as RoundWithMatches[]).flatMap((r) => r.matches) as unknown as MatchWithPlayers[]}
                     participants={participants as unknown as ParticipantWithProfile[]}
-                    format={(typedTournament as unknown as { format?: string }).format as 'round_robin' | 'league'}
+                    format={tournamentFormat as 'round_robin' | 'league'}
                   />
                 </div>
               )}
@@ -290,9 +365,9 @@ export default async function TournamentDetailPage({ params }: PageProps) {
         tournament.status === 'open' && (
           <div className="mb-10 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
             <p className="text-gray-400 dark:text-gray-500">
-              {(typedTournament as unknown as { format?: string }).format === 'knockout' || !(typedTournament as unknown as { format?: string }).format
+              {tournamentFormat === 'knockout' || tournamentFormat === 'double_elimination'
                 ? 'Bracket will appear once the organizer starts the tournament.'
-                : 'Schedule will appear once the organizer starts the tournament.'}
+                : 'Schedule and standings will appear once the organizer starts the tournament.'}
             </p>
           </div>
         )
