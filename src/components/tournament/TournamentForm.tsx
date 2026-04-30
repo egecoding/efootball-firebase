@@ -19,6 +19,9 @@ interface TournamentFormData {
 
 const FORMAT_OPTIONS: { value: TournamentFormat; label: string; desc: string }[] = [
   { value: 'knockout', label: 'Knockout', desc: "Single-elimination bracket. Lose once and you're out." },
+  { value: 'double_elimination', label: 'Double Elimination', desc: "Lose once → drop to losers bracket. Eliminated after second loss. Grand Final crowns the champion." },
+  { value: 'group_knockout', label: 'Group Stage + Knockout', desc: 'Players split into groups. Top finishers from each group advance to a knockout bracket.' },
+  { value: 'champions_league', label: 'Champions League', desc: 'Swiss-style league phase (6 rounds). Top teams auto-qualify, mid-table play playoffs, rest eliminated. Then full knockout.' },
   { value: 'round_robin', label: 'Round Robin', desc: 'Everyone plays everyone. Most wins takes the title.' },
   { value: 'league', label: 'League', desc: 'Everyone plays everyone. Points: 3W / 1D / 0L.' },
 ]
@@ -51,7 +54,7 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
   function addPlayer() {
     const name = playerInput.trim()
     if (!name || players.includes(name)) return
-    if (players.length >= form.max_participants - 1) return
+    if (players.length >= form.max_participants) return
     setPlayers((prev) => [...prev, name])
     setPlayerInput('')
     playerInputRef.current?.focus()
@@ -161,7 +164,7 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
     )
   }
 
-  const slotsLeft = form.max_participants - 1 - players.length
+  const slotsLeft = form.max_participants - players.length
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">

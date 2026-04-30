@@ -23,6 +23,12 @@ export type ManageMatch = {
   submissionScreenshotSignedUrl: string | null // from result_submissions (pre-finalization)
   submittedByName: string | null            // who submitted the pending screenshot
   round_name: string | null
+  round_number: number | null
+  round_phase: string | null                // 'group' | 'knockout' | 'winners' | 'losers' | 'grand_final' | 'league' | 'playoff'
+  group_name: string | null                 // group stage: 'A', 'B', etc.
+  bracket: string | null                    // 'winners' | 'losers' | 'grand_final' | 'league' | 'playoff'
+  tie_id: string | null                     // two-legged ties
+  leg: number | null                        // 1 or 2
 }
 
 export default async function ManageTournamentPage({ params }: PageProps) {
@@ -37,7 +43,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
     supabase
       .from('tournaments')
       .select(
-        'id, organizer_id, title, description, game_name, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
+        'id, organizer_id, title, description, game_name, format, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
       )
       .eq('id', params.id)
       .single(),
@@ -50,10 +56,10 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       .order('joined_at', { ascending: true }),
     supabase
       .from('matches')
-      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, rounds(round_name)')
+      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, group_name, bracket, tie_id, leg, rounds(round_number, round_name, phase)')
       .eq('tournament_id', params.id)
-      .in('status', ['scheduled', 'awaiting_confirmation', 'completed'])
-      .order('created_at', { ascending: true }),
+      .in('status', ['scheduled', 'awaiting_confirmation', 'completed', 'walkover'])
+      .order('match_number', { ascending: true }),
   ])
 
   if (!tournament) notFound()
@@ -141,6 +147,12 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       submissionScreenshotSignedUrl,
       submittedByName,
       round_name: m.rounds?.round_name ?? null,
+      round_number: m.rounds?.round_number ?? null,
+      round_phase: m.rounds?.phase ?? null,
+      group_name: m.group_name ?? null,
+      bracket: m.bracket ?? null,
+      tie_id: m.tie_id ?? null,
+      leg: m.leg ?? null,
     }
   }))
 

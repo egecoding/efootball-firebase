@@ -103,6 +103,14 @@ ALTER TABLE public.tournaments
   ADD COLUMN IF NOT EXISTS format TEXT NOT NULL DEFAULT 'knockout'
     CHECK (format IN ('knockout', 'round_robin', 'league'));
 
+-- Migration: expand format options
+DO $$ BEGIN
+  ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_format_check;
+  ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_format_check
+    CHECK (format IN ('knockout', 'round_robin', 'league', 'group_knockout', 'double_elimination', 'champions_league'));
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
 CREATE INDEX IF NOT EXISTS idx_tournaments_organizer   ON public.tournaments(organizer_id);
 CREATE INDEX IF NOT EXISTS idx_tournaments_status      ON public.tournaments(status);
 CREATE INDEX IF NOT EXISTS idx_tournaments_invite_code ON public.tournaments(invite_code);
@@ -143,8 +151,13 @@ CREATE TABLE IF NOT EXISTS public.rounds (
   tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
   round_number   INTEGER NOT NULL,
   round_name     TEXT NOT NULL,
+  phase          TEXT CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final')),
   UNIQUE(tournament_id, round_number)
 );
+
+-- Migration: add phase column to existing rounds table
+ALTER TABLE public.rounds ADD COLUMN IF NOT EXISTS phase TEXT
+  CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final'));
 
 CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON public.rounds(tournament_id);
 
@@ -174,10 +187,24 @@ CREATE TABLE IF NOT EXISTS public.matches (
   submitted_by     UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
   next_match_id    UUID REFERENCES public.matches(id) ON DELETE SET NULL,
   next_match_slot  INTEGER CHECK (next_match_slot IN (1, 2)),
+  loser_next_match_id  UUID REFERENCES public.matches(id) ON DELETE SET NULL,  -- double elimination: where loser goes
+  loser_next_match_slot INTEGER CHECK (loser_next_match_slot IN (1, 2)),
+  bracket          TEXT CHECK (bracket IN ('winners', 'losers', 'grand_final', 'league', 'playoff')),  -- bracket type
+  group_name       TEXT,  -- group stage: 'A', 'B', 'C', etc.
+  tie_id           UUID,  -- two-legged ties: groups leg1+leg2
+  leg              INTEGER CHECK (leg IN (1, 2)),  -- 1 = first leg, 2 = return leg
   played_at        TIMESTAMPTZ,
   created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migrations: add new columns to existing matches table
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS loser_next_match_id UUID REFERENCES public.matches(id) ON DELETE SET NULL;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS loser_next_match_slot INTEGER CHECK (loser_next_match_slot IN (1, 2));
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS bracket TEXT CHECK (bracket IN ('winners', 'losers', 'grand_final', 'league', 'playoff'));
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS group_name TEXT;
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS tie_id UUID;    -- two-legged: groups leg1+leg2 of same tie
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS leg INTEGER CHECK (leg IN (1, 2));  -- 1 = first leg, 2 = second leg
 
 CREATE INDEX IF NOT EXISTS idx_matches_tournament ON public.matches(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_matches_round      ON public.matches(round_id);

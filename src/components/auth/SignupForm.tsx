@@ -16,6 +16,7 @@ export function SignupForm() {
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirecting, setRedirecting] = useState(false)
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -38,7 +39,7 @@ export function SignupForm() {
     setLoading(true)
     const supabase = getClient()
 
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -49,14 +50,53 @@ export function SignupForm() {
       },
     })
 
-    if (authError) {
-      setError(authError.message)
+    if (signUpError) {
+      setError(signUpError.message)
       setLoading(false)
       return
     }
 
+    // If Supabase returned a session directly (email confirmation disabled), use it
+    if (signUpData.session) {
+      setLoading(false)
+      setRedirecting(true)
+      router.push('/dashboard')
+      router.refresh()
+      return
+    }
+
+    // Email confirmation is enabled — try signing in anyway
+    // (works if the project auto-confirms or if OTP flow is used)
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    })
+
+    setLoading(false)
+
+    if (signInError) {
+      // Email confirmation required — show message instead of broken redirect
+      setRedirecting(false)
+      setError('')
+      // Show a friendly confirmation-needed state
+      router.push('/auth/login?message=confirm_email')
+      return
+    }
+
+    setRedirecting(true)
     router.push('/dashboard')
     router.refresh()
+  }
+
+  if (redirecting) {
+    return (
+      <div className="flex flex-col items-center gap-3 py-6">
+        <div className="h-8 w-8 rounded-full border-4 border-brand-500 border-t-transparent animate-spin" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Account created! Redirecting you to your dashboard…
+        </p>
+      </div>
+    )
   }
 
   return (

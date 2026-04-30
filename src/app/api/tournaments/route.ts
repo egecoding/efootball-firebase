@@ -57,7 +57,7 @@ export async function POST(request: Request) {
       { status: 400 }
     )
   }
-  const validFormats = ['knockout', 'round_robin', 'league']
+  const validFormats = ['knockout', 'round_robin', 'league', 'group_knockout', 'double_elimination', 'champions_league']
   const resolvedFormat = validFormats.includes(format) ? format : 'knockout'
 
   const { data, error } = await supabase

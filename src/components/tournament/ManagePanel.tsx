@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { Share2, Play, Trash2, UserPlus, ExternalLink, CheckCircle, ClipboardEdit } from 'lucide-react'
+import { Share2, Play, Trash2, UserPlus, ExternalLink, CheckCircle, ClipboardEdit, Trophy } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -34,6 +34,10 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
   // Per-match confirm state (awaiting_confirmation)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [confirmErrors, setConfirmErrors] = useState<Record<string, string>>({})
+
+  const [advancingKnockout, setAdvancingKnockout] = useState(false)
+  const [generatingNextRound, setGeneratingNextRound] = useState(false)
+  const [advancingCLPlayoffs, setAdvancingCLPlayoffs] = useState(false)
 
   // Per-match manual entry state (scheduled matches)
   const [enteringId, setEnteringId] = useState<string | null>(null)
@@ -75,6 +79,39 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
       return
     }
     router.push(`/tournaments/${tournament.id}`)
+    router.refresh()
+  }
+
+  async function generateNextSwissRound() {
+    setError('')
+    setGeneratingNextRound(true)
+    const res = await fetch(`/api/tournaments/${tournament.id}/next-swiss-round`, { method: 'POST' })
+    const data = await res.json()
+    setGeneratingNextRound(false)
+    if (!res.ok) { setError(data.error); return }
+    router.refresh()
+  }
+
+  async function advanceCLPlayoffs() {
+    setError('')
+    setAdvancingCLPlayoffs(true)
+    const res = await fetch(`/api/tournaments/${tournament.id}/advance-cl-playoffs`, { method: 'POST' })
+    const data = await res.json()
+    setAdvancingCLPlayoffs(false)
+    if (!res.ok) { setError(data.error); return }
+    router.refresh()
+  }
+
+  async function advanceToKnockout() {
+    setError('')
+    setAdvancingKnockout(true)
+    const res = await fetch(`/api/tournaments/${tournament.id}/advance-knockout`, { method: 'POST' })
+    const data = await res.json()
+    setAdvancingKnockout(false)
+    if (!res.ok) {
+      setError(data.error)
+      return
+    }
     router.refresh()
   }
 
@@ -124,6 +161,69 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
     router.refresh()
   }
 
+  // group_knockout: show "Advance to Knockout" when all group matches done and no knockout matches yet
+  const groupMatches = matches.filter((m) => m.group_name != null)
+  const hasKnockoutMatches = matches.some((m) => m.group_name == null && m.round_phase === 'knockout')
+  const groupPhaseComplete =
+    tournament.format === 'group_knockout' &&
+    groupMatches.length > 0 &&
+    groupMatches.every((m) => m.status === 'completed' || m.status === 'walkover') &&
+    !hasKnockoutMatches
+
+  // champions_league: compute standings + phase state
+  const clLeagueMatches = matches.filter((m) => m.bracket === 'league')
+  const clPlayoffMatches = matches.filter((m) => m.bracket === 'playoff')
+  const clHasPlayoffs = clPlayoffMatches.length > 0
+  const clLeagueRoundsPlayed = clLeagueMatches.length > 0
+    ? Math.max(...clLeagueMatches.map((m) => m.round_number ?? 0))
+    : 0
+  const clAllLeagueDone = clLeagueMatches.length > 0 &&
+    clLeagueMatches.every((m) => m.status === 'completed' || m.status === 'walkover')
+  const clTotalRoundsCount = (() => {
+    const n = participants.length
+    if (n <= 6) return 3
+    if (n <= 12) return 4
+    if (n <= 20) return 6
+    return 7
+  })()
+  const clCanGenerateNextRound =
+    tournament.format === 'champions_league' &&
+    clAllLeagueDone &&
+    clLeagueRoundsPlayed < clTotalRoundsCount &&
+    !clHasPlayoffs
+  const clCanAdvancePlayoffs =
+    tournament.format === 'champions_league' &&
+    clAllLeagueDone &&
+    clLeagueRoundsPlayed >= clTotalRoundsCount &&
+    !clHasPlayoffs
+
+  // CL standings (from league matches)
+  interface CLStandingRow { name: string; pts: number; played: number; gf: number; ga: number; gd: number; wins: number; draws: number }
+  const clStandings = (() => {
+    if (tournament.format !== 'champions_league') return []
+    const map = new Map<string, CLStandingRow>()
+    const getKey = (id: string | null, name: string | null) => id ?? name ?? '?'
+    const get = (id: string | null, name: string | null): CLStandingRow => {
+      const k = getKey(id, name)
+      if (!map.has(k)) map.set(k, { name: name ?? id ?? '?', pts: 0, played: 0, gf: 0, ga: 0, gd: 0, wins: 0, draws: 0 })
+      return map.get(k)!
+    }
+    for (const m of clLeagueMatches) {
+      if (m.status !== 'completed' && m.status !== 'walkover') continue
+      const s1 = m.player1_score ?? 0
+      const s2 = m.player2_score ?? 0
+      const p1 = get(m.player1_id, m.player1_name)
+      const p2 = get(m.player2_id, m.player2_name)
+      p1.played++; p2.played++
+      p1.gf += s1; p1.ga += s2; p1.gd = p1.gf - p1.ga
+      p2.gf += s2; p2.ga += s1; p2.gd = p2.gf - p2.ga
+      if (s1 > s2) { p1.pts += 3; p1.wins++ }
+      else if (s2 > s1) { p2.pts += 3; p2.wins++ }
+      else { p1.pts += 1; p2.pts += 1; p1.draws++; p2.draws++ }
+    }
+    return Array.from(map.values()).sort((a, b) => b.pts - a.pts || b.gd - a.gd || b.gf - a.gf)
+  })()
+
   const activeMatches = matches.filter((m) => {
     if (m.status === 'completed') return true
     if (m.status === 'awaiting_confirmation') return true
@@ -171,6 +271,40 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
             {participants.length < 2 && (
               <span className="text-xs opacity-70 ml-auto">(need ≥2 players)</span>
             )}
+          </Button>
+        )}
+
+        {groupPhaseComplete && (
+          <Button
+            onClick={advanceToKnockout}
+            loading={advancingKnockout}
+            className="justify-start gap-3"
+          >
+            <Trophy className="h-4 w-4" />
+            Advance to Knockout Stage
+          </Button>
+        )}
+
+        {clCanGenerateNextRound && (
+          <Button
+            onClick={generateNextSwissRound}
+            loading={generatingNextRound}
+            className="justify-start gap-3"
+          >
+            <Play className="h-4 w-4" />
+            Generate League Round {clLeagueRoundsPlayed + 1}
+            <span className="text-xs opacity-70 ml-auto">({clLeagueRoundsPlayed}/{clTotalRoundsCount} done)</span>
+          </Button>
+        )}
+
+        {clCanAdvancePlayoffs && (
+          <Button
+            onClick={advanceCLPlayoffs}
+            loading={advancingCLPlayoffs}
+            className="justify-start gap-3"
+          >
+            <Trophy className="h-4 w-4" />
+            Advance to Playoffs &amp; Knockout
           </Button>
         )}
 
@@ -263,8 +397,17 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      {m.round_name && (
-                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{m.round_name}</p>
+                      {(m.round_name || m.group_name || m.bracket || m.leg) && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">
+                          {m.group_name ? `Group ${m.group_name} · ` : ''}
+                          {m.bracket === 'winners' ? 'Winners · ' :
+                           m.bracket === 'losers' ? 'Losers · ' :
+                           m.bracket === 'grand_final' ? '🏆 Grand Final · ' :
+                           m.bracket === 'league' ? '📋 League · ' :
+                           m.bracket === 'playoff' ? '⚡ Playoff · ' : ''}
+                          {m.round_name ?? ''}
+                          {m.leg === 1 ? ' · 1st Leg' : m.leg === 2 ? ' · 2nd Leg' : ''}
+                        </p>
                       )}
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {p1} vs {p2}
@@ -410,6 +553,66 @@ export function ManagePanel({ tournament, participants, matches, baseUrl }: Mana
                 </div>
               )
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Champions League Standings */}
+      {tournament.format === 'champions_league' && clStandings.length > 0 && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-semibold text-gray-900 dark:text-white">League Standings</h2>
+            <span className="text-xs text-gray-400">Round {clLeagueRoundsPlayed}/{clTotalRoundsCount}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-gray-400 border-b border-gray-100 dark:border-gray-800">
+                  <th className="text-left py-1.5 pr-2 font-medium w-6">#</th>
+                  <th className="text-left py-1.5 pr-2 font-medium">Player</th>
+                  <th className="text-center py-1.5 px-1 font-medium">P</th>
+                  <th className="text-center py-1.5 px-1 font-medium">W</th>
+                  <th className="text-center py-1.5 px-1 font-medium">D</th>
+                  <th className="text-center py-1.5 px-1 font-medium">GD</th>
+                  <th className="text-center py-1.5 px-1 font-semibold text-brand-500">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clStandings.map((s, i) => {
+                  const { autoQualify, playoffTeams } = (() => {
+                    const n = participants.length
+                    if (n <= 8) return { autoQualify: 2, playoffTeams: 4 }
+                    if (n <= 24) return { autoQualify: 4, playoffTeams: 8 }
+                    return { autoQualify: 8, playoffTeams: 16 }
+                  })()
+                  const isAuto = i < autoQualify
+                  const isPlayoff = i >= autoQualify && i < autoQualify + playoffTeams
+                  return (
+                    <tr key={s.name} className={`border-b border-gray-50 dark:border-gray-800/60 ${
+                      isAuto ? 'bg-green-50/50 dark:bg-green-900/10' :
+                      isPlayoff ? 'bg-yellow-50/50 dark:bg-yellow-900/10' : ''
+                    }`}>
+                      <td className="py-1.5 pr-2 text-gray-400">{i + 1}</td>
+                      <td className="py-1.5 pr-2 font-medium text-gray-900 dark:text-white truncate max-w-[120px]">
+                        {s.name}
+                        {isAuto && <span className="ml-1 text-[10px] text-green-600 dark:text-green-400 font-semibold">Auto</span>}
+                        {isPlayoff && <span className="ml-1 text-[10px] text-yellow-600 dark:text-yellow-400 font-semibold">PO</span>}
+                      </td>
+                      <td className="text-center py-1.5 px-1 text-gray-500">{s.played}</td>
+                      <td className="text-center py-1.5 px-1 text-gray-500">{s.wins}</td>
+                      <td className="text-center py-1.5 px-1 text-gray-500">{s.draws}</td>
+                      <td className="text-center py-1.5 px-1 text-gray-500">{s.gd > 0 ? `+${s.gd}` : s.gd}</td>
+                      <td className="text-center py-1.5 px-1 font-bold text-brand-600 dark:text-brand-400">{s.pts}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+            <div className="mt-2 flex items-center gap-4 text-[10px] text-gray-400">
+              <span><span className="inline-block w-2 h-2 rounded-sm bg-green-200 dark:bg-green-900/40 mr-1" />Auto-qualify</span>
+              <span><span className="inline-block w-2 h-2 rounded-sm bg-yellow-200 dark:bg-yellow-900/40 mr-1" />Playoff</span>
+              <span>Remainder eliminated</span>
+            </div>
           </div>
         </div>
       )}
