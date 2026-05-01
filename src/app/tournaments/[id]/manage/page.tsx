@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { ManagePanel } from '@/components/tournament/ManagePanel'
 import type { TournamentWithOrganizer, ParticipantWithProfile } from '@/types/database'
 
@@ -33,28 +34,39 @@ export type ManageMatch = {
 
 export default async function ManageTournamentPage({ params }: PageProps) {
   const supabase = await createClient()
+  const admin = createAdminClient()
+
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) redirect('/auth/login')
 
+  // Check super admin status
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_super_admin')
+    .eq('id', user.id)
+    .single()
+  const isSuperAdmin = !!(profile as { is_super_admin?: boolean } | null)?.is_super_admin
+
+  // Use admin client to bypass RLS — organizers are sometimes blocked by policy mismatches
   const [{ data: tournament }, { data: participants }, { data: rawMatches }] = await Promise.all([
-    supabase
+    admin
       .from('tournaments')
       .select(
         'id, organizer_id, title, description, game_name, format, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
       )
       .eq('id', params.id)
       .single(),
-    supabase
+    admin
       .from('participants')
       .select(
         'id, tournament_id, user_id, name, seed, joined_at, profiles(id, username, display_name, avatar_url, wins, losses, created_at, updated_at)'
       )
       .eq('tournament_id', params.id)
       .order('joined_at', { ascending: true }),
-    supabase
+    admin
       .from('matches')
       .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, group_name, bracket, tie_id, leg, rounds(round_number, round_name, phase)')
       .eq('tournament_id', params.id)
@@ -67,7 +79,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedTournament = tournament as any as TournamentWithOrganizer
 
-  if (typedTournament.organizer_id !== user.id) {
+  if (typedTournament.organizer_id !== user.id && !isSuperAdmin) {
     redirect(`/tournaments/${params.id}`)
   }
 
@@ -163,10 +175,16 @@ export default async function ManageTournamentPage({ params }: PageProps) {
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
           {typedTournament.title}
         </p>
+        {isSuperAdmin && typedTournament.organizer_id !== user.id && (
+          <div className="mb-6 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+            👑 You are viewing this as <strong>Super Admin</strong> — you are not the organizer.
+          </div>
+        )}
         <ManagePanel
           tournament={typedTournament}
           participants={(participants as unknown as ParticipantWithProfile[]) ?? []}
           matches={matches}
+          isSuperAdmin={isSuperAdmin}
           baseUrl={
             process.env.NEXT_PUBLIC_APP_URL ??
             (process.env.VERCEL_PROJECT_PRODUCTION_URL

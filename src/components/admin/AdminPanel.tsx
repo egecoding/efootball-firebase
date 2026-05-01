@@ -329,11 +329,12 @@ function TournamentsTab() {
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Format</th>
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Status</th>
               <th className="text-left px-5 py-3 text-gray-500 font-medium">Created</th>
+              <th className="text-left px-5 py-3 text-gray-500 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-500 animate-pulse">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-500 animate-pulse">Loading…</td></tr>
             )}
             {!loading && tournaments.map((t) => (
               <tr key={t.id} className="border-b border-gray-800/50 last:border-0 hover:bg-white/5">
@@ -346,6 +347,14 @@ function TournamentsTab() {
                 <td className="px-5 py-3 text-gray-400 capitalize">{t.format}</td>
                 <td className="px-5 py-3"><StatusBadge status={t.status} /></td>
                 <td className="px-5 py-3 text-gray-400">{new Date(t.created_at).toLocaleDateString()}</td>
+                <td className="px-5 py-3">
+                  <a
+                    href={`/tournaments/${t.id}/manage`}
+                    className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg border border-brand-500/30 text-brand-400 hover:bg-brand-500/10 transition-colors"
+                  >
+                    Manage →
+                  </a>
+                </td>
               </tr>
             ))}
           </tbody>
