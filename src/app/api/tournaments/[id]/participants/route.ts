@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
+import { checkSuperAdmin } from '@/lib/admin-guard'
 
 export async function POST(
   request: Request,
@@ -11,15 +13,15 @@ export async function POST(
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Verify caller is the organizer
-  const { data: tournament } = await supabase
-    .from('tournaments')
-    .select('organizer_id, max_participants, status')
-    .eq('id', params.id)
-    .single()
+  // Verify caller is the organizer or super admin
+  const admin = createAdminClient()
+  const [{ data: tournament }, superAdmin] = await Promise.all([
+    admin.from('tournaments').select('organizer_id, max_participants, status').eq('id', params.id).single(),
+    checkSuperAdmin(user.id),
+  ])
 
   if (!tournament) return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
-  if (tournament.organizer_id !== user.id)
+  if (tournament.organizer_id !== user.id && !superAdmin)
     return NextResponse.json({ error: 'Only the organizer can add participants' }, { status: 403 })
   if (tournament.status !== 'open')
     return NextResponse.json({ error: 'Tournament is not open' }, { status: 400 })

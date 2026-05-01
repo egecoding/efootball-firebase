@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { generateBracket, generateRoundRobin, generateGroups, generateDoubleElimination, generateSwissPairings, clTotalRounds, getRoundName } from '@/lib/utils/bracket'
+import { checkSuperAdmin } from '@/lib/admin-guard'
 
 export async function POST(
   _req: Request,
@@ -12,13 +14,13 @@ export async function POST(
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: tournament } = await supabase
-    .from('tournaments')
-    .select('organizer_id, status, format')
-    .eq('id', params.id)
-    .single()
+  const admin = createAdminClient()
+  const [{ data: tournament }, superAdmin] = await Promise.all([
+    admin.from('tournaments').select('organizer_id, status, format').eq('id', params.id).single(),
+    checkSuperAdmin(user.id),
+  ])
 
-  if (!tournament || tournament.organizer_id !== user.id)
+  if (!tournament || (tournament.organizer_id !== user.id && !superAdmin))
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   if (tournament.status !== 'open')

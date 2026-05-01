@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { sendPush, sendPushToParticipants } from '@/lib/push'
+import { checkSuperAdmin } from '@/lib/admin-guard'
 
 // POST /api/matches/[id]/confirm
 // Organizer-only: finalizes a match.
@@ -37,7 +38,8 @@ export async function POST(
     return NextResponse.json({ error: tournamentErr?.message ?? 'Tournament not found' }, { status: 404 })
   }
 
-  if (tournament.organizer_id !== user.id) {
+  const superAdmin = await checkSuperAdmin(user.id)
+  if (tournament.organizer_id !== user.id && !superAdmin) {
     return NextResponse.json({ error: 'Only the organizer can confirm results' }, { status: 403 })
   }
 

@@ -87,7 +87,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
   // submitted by players even before the match is finalized
   const matchIds = (rawMatches ?? []).map((m: { id: string }) => m.id)
   const { data: submissions } = matchIds.length
-    ? await supabase
+    ? await admin
         .from('result_submissions')
         .select('match_id, screenshot_url, submitted_by, profiles(display_name, username)')
         .in('match_id', matchIds)
@@ -121,21 +121,21 @@ export default async function ManageTournamentPage({ params }: PageProps) {
 
     if (m.status === 'completed' && m.screenshot_url) {
       // Finalized — show as a confirmed screenshot (no action needed)
-      const { data: signed } = await supabase.storage
+      const { data: signed } = await admin.storage
         .from('screenshots')
         .createSignedUrl(m.screenshot_url, 60 * 60)
       screenshotSignedUrl = signed?.signedUrl ?? null
     } else if (m.status === 'awaiting_confirmation') {
       if (submission) {
         // Registered player submitted via result_submissions
-        const { data: signed } = await supabase.storage
+        const { data: signed } = await admin.storage
           .from('screenshots')
           .createSignedUrl(submission.screenshot_url, 60 * 60)
         submissionScreenshotSignedUrl = signed?.signedUrl ?? null
         submittedByName = submission.submittedByName
       } else if (m.screenshot_url) {
         // Guest submitted directly to the match row — still needs organizer confirmation
-        const { data: signed } = await supabase.storage
+        const { data: signed } = await admin.storage
           .from('screenshots')
           .createSignedUrl(m.screenshot_url, 60 * 60)
         submissionScreenshotSignedUrl = signed?.signedUrl ?? null

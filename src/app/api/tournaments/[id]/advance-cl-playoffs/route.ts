@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { generateBracket, clTotalRounds, clAdvancers, getRoundName, type CLStanding } from '@/lib/utils/bracket'
+import { checkSuperAdmin } from '@/lib/admin-guard'
 
 // POST /api/tournaments/[id]/advance-cl-playoffs
 // After all league rounds complete: rank teams, create playoff matches for
@@ -23,7 +24,8 @@ export async function POST(
     .single()
 
   if (!tournament) return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
-  if (tournament.organizer_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const superAdmin = await checkSuperAdmin(user.id)
+  if (tournament.organizer_id !== user.id && !superAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (tournament.format !== 'champions_league') return NextResponse.json({ error: 'Only for champions_league format' }, { status: 400 })
 
   // Ensure no playoff/knockout matches already created

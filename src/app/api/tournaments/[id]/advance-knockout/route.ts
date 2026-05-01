@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { generateBracket, getRoundName } from '@/lib/utils/bracket'
 import { randomUUID } from 'crypto'
+import { checkSuperAdmin } from '@/lib/admin-guard'
 
 // POST /api/tournaments/[id]/advance-knockout
 // For group_knockout tournaments: calculates group standings after all group
@@ -26,7 +27,8 @@ export async function POST(
     .single()
 
   if (!tournament) return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
-  if (tournament.organizer_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const superAdmin = await checkSuperAdmin(user.id)
+  if (tournament.organizer_id !== user.id && !superAdmin) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   if (tournament.format !== 'group_knockout') return NextResponse.json({ error: 'Only for group_knockout format' }, { status: 400 })
   if (tournament.status !== 'in_progress') return NextResponse.json({ error: 'Tournament must be in_progress' }, { status: 409 })
 

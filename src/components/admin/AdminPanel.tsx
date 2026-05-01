@@ -124,6 +124,7 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
                 <th className="text-left px-5 py-3 text-gray-500 font-medium">Format</th>
                 <th className="text-left px-5 py-3 text-gray-500 font-medium">Status</th>
                 <th className="text-left px-5 py-3 text-gray-500 font-medium">Created</th>
+                <th className="text-left px-5 py-3 text-gray-500 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -135,6 +136,9 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
                   <td className="px-5 py-3 text-gray-400 capitalize">{t.format}</td>
                   <td className="px-5 py-3"><StatusBadge status={t.status} /></td>
                   <td className="px-5 py-3 text-gray-400">{new Date(t.created_at).toLocaleDateString()}</td>
+                  <td className="px-5 py-3">
+                    <a href={`/tournaments/${t.id}/manage`} className="text-xs text-brand-400 hover:underline">Manage →</a>
+                  </td>
                 </tr>
               ))}
             </tbody>
