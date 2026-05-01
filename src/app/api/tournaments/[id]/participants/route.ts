@@ -70,25 +70,35 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { searchParams } = new URL(request.url)
   const participantId = searchParams.get('participantId')
   const userId = searchParams.get('userId')
 
-  let query = supabase
+  // Organizer/super admin can remove any participant; players can only remove themselves
+  const isRemovingSelf = !participantId && (userId === user.id || !userId)
+
+  const adminClient = createAdminClient()
+
+  if (!isRemovingSelf) {
+    const [{ data: tournament }, superAdmin] = await Promise.all([
+      adminClient.from('tournaments').select('organizer_id').eq('id', params.id).single(),
+      checkSuperAdmin(user.id),
+    ])
+    if (!tournament || (tournament.organizer_id !== user.id && !superAdmin))
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  let query = adminClient
     .from('participants')
     .delete()
     .eq('tournament_id', params.id)
 
   if (participantId) {
-    // Guest removal by participant row id (organizer only)
     query = query.eq('id', participantId)
   } else {
-    // Registered user removal by user_id
     query = query.eq('user_id', userId ?? user.id)
   }
 

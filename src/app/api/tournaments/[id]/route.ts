@@ -51,7 +51,7 @@ export async function PATCH(
     if (key in body) updates[key] = body[key]
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await admin
     .from('tournaments')
     .update(updates)
     .eq('id', params.id)
@@ -67,17 +67,20 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { error } = await supabase
-    .from('tournaments')
-    .delete()
-    .eq('id', params.id)
-    .eq('organizer_id', user.id)
+  const admin = createAdminClient()
+  const [{ data: tournament }, superAdmin] = await Promise.all([
+    admin.from('tournaments').select('organizer_id').eq('id', params.id).single(),
+    checkSuperAdmin(user.id),
+  ])
 
+  if (!tournament) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (tournament.organizer_id !== user.id && !superAdmin)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const { error } = await admin.from('tournaments').delete().eq('id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

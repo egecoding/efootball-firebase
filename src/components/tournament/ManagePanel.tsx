@@ -18,9 +18,10 @@ interface ManagePanelProps {
   matches: ManageMatch[]
   baseUrl: string
   isSuperAdmin?: boolean
+  currentUserId?: string
 }
 
-export function ManagePanel({ tournament, participants, matches, baseUrl, isSuperAdmin = false }: ManagePanelProps) {
+export function ManagePanel({ tournament, participants, matches, baseUrl, isSuperAdmin = false, currentUserId }: ManagePanelProps) {
   const router = useRouter()
   const [inviteOpen, setInviteOpen] = useState(false)
   const [startLoading, setStartLoading] = useState(false)
@@ -736,7 +737,7 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
         <ParticipantList
           participants={participants}
           organizerId={tournament.organizer_id}
-          currentUserId={tournament.organizer_id}
+          currentUserId={currentUserId ?? tournament.organizer_id}
           tournamentId={tournament.id}
         />
       </div>

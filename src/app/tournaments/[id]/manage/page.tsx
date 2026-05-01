@@ -185,6 +185,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
           participants={(participants as unknown as ParticipantWithProfile[]) ?? []}
           matches={matches}
           isSuperAdmin={isSuperAdmin}
+          currentUserId={user.id}
           baseUrl={
             process.env.NEXT_PUBLIC_APP_URL ??
             (process.env.VERCEL_PROJECT_PRODUCTION_URL
