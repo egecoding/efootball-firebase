@@ -42,8 +42,8 @@ export default async function ManageTournamentPage({ params }: PageProps) {
 
   if (!user) redirect('/auth/login')
 
-  // Check super admin status
-  const { data: profile } = await supabase
+  // Check super admin status — use admin client to bypass RLS on profiles
+  const { data: profile } = await admin
     .from('profiles')
     .select('is_super_admin')
     .eq('id', user.id)
