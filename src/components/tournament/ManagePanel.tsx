@@ -518,6 +518,27 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                     </div>
                   )}
 
+                  {/* awaiting_confirmation with scores but no screenshot — show plain confirm */}
+                  {m.status === 'awaiting_confirmation' && !m.submissionScreenshotSignedUrl &&
+                    m.player1_score !== null && m.player2_score !== null && (
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Scores submitted — no screenshot provided.
+                      </p>
+                      {confirmErrors[m.id] && (
+                        <p className="text-xs text-red-600 dark:text-red-400">{confirmErrors[m.id]}</p>
+                      )}
+                      <button
+                        onClick={() => confirmResult(m.id)}
+                        disabled={confirmingId === m.id}
+                        className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white transition-colors w-fit"
+                      >
+                        <CheckCircle className="h-3.5 w-3.5" />
+                        {confirmingId === m.id ? 'Confirming…' : 'Confirm Result'}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Manual result entry — for scheduled matches where no score was submitted */}
                   {m.status === 'scheduled' && hasPlayers && (
                     <div>
