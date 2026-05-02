@@ -39,16 +39,19 @@ export async function GET(
   }
 
   const avatarDataUri = topScorer.avatarUrl ? await toDataUri(topScorer.avatarUrl) : null
-  const tournamentTitle = tournament.title ?? 'Tournament'
+  const tournamentTitle = (tournament.title ?? 'Tournament').toUpperCase()
   const dateStr = tournament.starts_at
     ? new Date(tournament.starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : new Date().getFullYear().toString()
-  const playerCount = participants?.length ?? 0
-  const scorerName = topScorer.name
+  const scorerName = topScorer.name.toUpperCase()
   const goals = topScorer.gf
   const matches = topScorer.mp
   const avgStr = matches > 0 ? (goals / matches).toFixed(1) : '0.0'
-  const initial = scorerName.charAt(0).toUpperCase()
+  const initial = topScorer.name.charAt(0).toUpperCase()
+
+  // Truncate long name
+  const displayName = scorerName.length > 16 ? scorerName.slice(0, 15) + '…' : scorerName
+  const nameFontSize = scorerName.length > 12 ? 22 : 28
 
   return new ImageResponse(
     (
@@ -56,7 +59,7 @@ export async function GET(
         style={{
           width: 420,
           height: 600,
-          background: '#0a0a0a',
+          background: '#080f1e',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -65,66 +68,43 @@ export async function GET(
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
-        {/* Background glow — orange/red */}
+        {/* Deep background gradient */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #0d1a3a 0%, #080f1e 50%, #0a0d15 100%)' }} />
+
+        {/* Central spotlight behind avatar */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse 80% 60% at 50% 70%, rgba(249,115,22,0.2) 0%, transparent 70%)',
+            top: 160,
+            left: '50%',
+            width: 360,
+            height: 360,
+            marginLeft: -180,
+            background: 'radial-gradient(circle, rgba(59,130,246,0.22) 0%, rgba(99,102,241,0.12) 40%, transparent 70%)',
+            borderRadius: '50%',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse 120% 40% at 50% 100%, rgba(220,38,38,0.2) 0%, transparent 60%)',
-          }}
-        />
-        {/* Top accent strip */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: 'linear-gradient(90deg, #ef4444, #f97316, #eab308)',
+            top: 220,
+            left: '50%',
+            width: 280,
+            height: 280,
+            marginLeft: -140,
+            background: 'radial-gradient(circle, rgba(234,179,8,0.1) 0%, transparent 60%)',
+            borderRadius: '50%',
           }}
         />
 
-        {/* Scattered fire/ball confetti */}
-        {[
-          { top: 40, left: 30, color: '#f97316', size: 4 },
-          { top: 70, left: 90, color: '#fbbf24', size: 3 },
-          { top: 55, left: 330, color: '#ef4444', size: 5 },
-          { top: 30, left: 200, color: '#f97316', size: 3 },
-          { top: 100, left: 370, color: '#fbbf24', size: 2 },
-          { top: 130, left: 50, color: '#ef4444', size: 3 },
-          { top: 160, left: 160, color: '#fbbf24', size: 4 },
-          { top: 20, left: 140, color: '#f97316', size: 2 },
-          { top: 85, left: 260, color: '#eab308', size: 3 },
-          { top: 500, left: 40, color: '#f97316', size: 4 },
-          { top: 520, left: 370, color: '#fbbf24', size: 3 },
-          { top: 550, left: 180, color: '#ef4444', size: 2 },
-          { top: 480, left: 290, color: '#f97316', size: 3 },
-        ].map((dot, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              top: dot.top,
-              left: dot.left,
-              width: dot.size,
-              height: dot.size * 2,
-              background: dot.color,
-              borderRadius: 1,
-              transform: `rotate(${i * 41}deg)`,
-              opacity: 0.6,
-            }}
-          />
-        ))}
+        {/* Top accent bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #1d4ed8, #eab308, #1d4ed8)' }} />
 
-        {/* Inner content */}
+        {/* Side accent lines */}
+        <div style={{ position: 'absolute', top: 3, left: 0, width: 3, height: 597, background: 'linear-gradient(180deg, #1d4ed8 0%, rgba(29,78,216,0.1) 100%)' }} />
+        <div style={{ position: 'absolute', top: 3, right: 0, width: 3, height: 597, background: 'linear-gradient(180deg, #eab308 0%, rgba(234,179,8,0.1) 100%)' }} />
+
+        {/* Content */}
         <div
           style={{
             position: 'relative',
@@ -133,290 +113,199 @@ export async function GET(
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
-            padding: '24px 20px 28px',
+            padding: '20px 24px 20px',
           }}
         >
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                background: 'linear-gradient(135deg, #ef4444, #f97316)',
-                borderRadius: 6,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-              }}
-            >
-              ⚽
-            </div>
+          {/* Org label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <div style={{ width: 20, height: 20, borderRadius: 4, background: 'linear-gradient(135deg, #1d4ed8, #3b82f6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>⚽</div>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(147,197,253,0.7)' }}>eFootball Cup</span>
+          </div>
+
+          {/* TOP SCORER headline */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
             <span
               style={{
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 3,
+                fontSize: 82,
+                fontWeight: 900,
+                lineHeight: 0.92,
+                letterSpacing: -2,
                 textTransform: 'uppercase',
-                color: '#f97316',
+                color: '#ffffff',
+                textAlign: 'center',
               }}
             >
-              eFootball Cup
+              TOP
+            </span>
+            <span
+              style={{
+                fontSize: 82,
+                fontWeight: 900,
+                lineHeight: 0.92,
+                letterSpacing: -2,
+                textTransform: 'uppercase',
+                background: 'linear-gradient(135deg, #fbbf24 0%, #eab308 50%, #d97706 100%)',
+                backgroundClip: 'text',
+                color: 'transparent',
+                textAlign: 'center',
+              }}
+            >
+              SCORER
             </span>
           </div>
-          <span
-            style={{
-              fontSize: 10,
-              letterSpacing: 4,
-              textTransform: 'uppercase',
-              color: 'rgba(249,115,22,0.5)',
-              marginBottom: 14,
-            }}
-          >
-            Tournament
-          </span>
 
-          {/* TOP SCORER */}
-          <div
-            style={{
-              fontSize: 66,
-              fontWeight: 900,
-              lineHeight: 0.95,
-              textTransform: 'uppercase',
-              letterSpacing: -2,
-              background: 'linear-gradient(180deg, #fbbf24 0%, #f97316 45%, #ef4444 100%)',
-              backgroundClip: 'text',
-              color: 'transparent',
-              textAlign: 'center',
-              marginBottom: 2,
-            }}
-          >
-            TOP
-          </div>
-          <div
-            style={{
-              fontSize: 66,
-              fontWeight: 900,
-              lineHeight: 0.95,
-              textTransform: 'uppercase',
-              letterSpacing: -2,
-              background: 'linear-gradient(180deg, #fbbf24 0%, #f97316 45%, #ef4444 100%)',
-              backgroundClip: 'text',
-              color: 'transparent',
-              textAlign: 'center',
-              marginBottom: 6,
-            }}
-          >
-            SCORER
-          </div>
+          {/* Gold accent rule */}
+          <div style={{ width: 220, height: 2, background: 'linear-gradient(90deg, transparent, #eab308, transparent)', borderRadius: 2, marginBottom: 16 }} />
 
-          {/* Brush stroke — orange */}
-          <div
-            style={{
-              width: 300,
-              height: 6,
-              background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.8), transparent)',
-              borderRadius: 4,
-              marginBottom: 18,
-            }}
-          />
-
-          {/* Taglines */}
-          <div
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0 8px',
-              marginBottom: 14,
-            }}
-          >
+          {/* Avatar — large focal point */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            {/* Outer glow ring */}
             <div
               style={{
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-                lineHeight: 1.6,
-                color: 'rgba(249,115,22,0.7)',
-                display: 'flex',
-                flexDirection: 'column',
+                position: 'absolute',
+                width: 196,
+                height: 196,
+                borderRadius: '50%',
+                background: 'transparent',
+                border: '2px solid rgba(234,179,8,0.35)',
+                boxShadow: '0 0 32px rgba(234,179,8,0.2)',
               }}
-            >
-              <span>THE</span><span>GOLDEN</span><span>BOOT</span>
-            </div>
+            />
+            {/* Inner ring */}
             <div
               style={{
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-                lineHeight: 1.6,
-                color: 'rgba(249,115,22,0.7)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
+                position: 'absolute',
+                width: 178,
+                height: 178,
+                borderRadius: '50%',
+                background: 'transparent',
+                border: '2px solid rgba(59,130,246,0.5)',
               }}
-            >
-              <span>GOALS</span><span>NEVER</span><span>LIE</span>
-            </div>
-          </div>
-
-          {/* Boot icon + Avatar */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14 }}>
-            <div style={{ fontSize: 64, lineHeight: 1, marginBottom: -6 }}>👟</div>
-
+            />
             {/* Avatar circle */}
             <div
               style={{
-                width: 80,
-                height: 80,
+                width: 164,
+                height: 164,
                 borderRadius: '50%',
-                background: avatarDataUri ? 'transparent' : 'linear-gradient(135deg, #1a0a00, #3d1a00)',
-                border: '3px solid #f97316',
+                background: avatarDataUri ? 'transparent' : 'linear-gradient(135deg, #1e3a5f, #0d1a3a)',
+                border: '3px solid #eab308',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 32,
+                fontSize: 52,
                 fontWeight: 900,
-                color: '#f97316',
+                color: '#eab308',
                 overflow: 'hidden',
-                position: 'relative',
-                marginBottom: 10,
               }}
             >
-              <div style={{ position: 'absolute', top: -12, fontSize: 18 }}>🔥</div>
               {avatarDataUri ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarDataUri} alt="" style={{ width: 80, height: 80, objectFit: 'cover' }} />
+                <img src={avatarDataUri} alt="" style={{ width: 164, height: 164, objectFit: 'cover' }} />
               ) : (
                 <span>{initial}</span>
               )}
             </div>
+          </div>
 
-            {/* Goals badge */}
-            <div
-              style={{
-                background: 'linear-gradient(135deg, #ef4444, #f97316)',
-                borderRadius: 20,
-                padding: '4px 16px',
-                marginBottom: 10,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{goals}</span>
-              <span style={{ fontSize: 9, fontWeight: 800, color: 'rgba(255,255,255,0.85)', textTransform: 'uppercase', letterSpacing: 1.5 }}>
-                goals
-              </span>
-            </div>
+          {/* Player name */}
+          <div
+            style={{
+              fontSize: nameFontSize,
+              fontWeight: 900,
+              color: '#ffffff',
+              letterSpacing: 1,
+              textAlign: 'center',
+              marginBottom: 2,
+            }}
+          >
+            {displayName}
+          </div>
 
-            {/* Player name */}
-            <div
+          {/* Goals headline — "N GOALS" style */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
+            <span
               style={{
-                fontSize: scorerName.length > 14 ? 22 : 28,
+                fontSize: 72,
                 fontWeight: 900,
-                color: '#fff',
-                letterSpacing: -0.5,
-                textAlign: 'center',
-                marginBottom: 3,
+                lineHeight: 1,
+                background: 'linear-gradient(180deg, #fbbf24 0%, #eab308 60%, #d97706 100%)',
+                backgroundClip: 'text',
+                color: 'transparent',
+                letterSpacing: -2,
               }}
             >
-              {scorerName}
-            </div>
-            <div
+              {goals}
+            </span>
+            <span
               style={{
-                fontSize: 10,
+                fontSize: 26,
+                fontWeight: 800,
+                color: 'rgba(255,255,255,0.85)',
                 letterSpacing: 3,
                 textTransform: 'uppercase',
-                color: 'rgba(249,115,22,0.6)',
-                marginBottom: 14,
               }}
             >
-              Top Scorer · {new Date().getFullYear()}
-            </div>
+              GOALS
+            </span>
+          </div>
+
+          {/* Avg per game */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <span style={{ fontSize: 10, color: 'rgba(147,197,253,0.55)', letterSpacing: 2, textTransform: 'uppercase' }}>
+              {matches} matches
+            </span>
+            <div style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(234,179,8,0.5)' }} />
+            <span style={{ fontSize: 10, color: 'rgba(147,197,253,0.55)', letterSpacing: 2, textTransform: 'uppercase' }}>
+              {avgStr} avg
+            </span>
           </div>
 
           {/* Divider */}
-          <div
-            style={{
-              width: '100%',
-              height: 1,
-              background: 'linear-gradient(90deg, transparent, rgba(249,115,22,0.5), transparent)',
-              marginBottom: 14,
-            }}
-          />
+          <div style={{ width: '88%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(59,130,246,0.4), rgba(234,179,8,0.4), transparent)', marginBottom: 12 }} />
 
-          {/* Stats row */}
+          {/* Tournament name box */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 24,
-              marginBottom: 14,
-              width: '100%',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>{goals}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Goals</span>
-            </div>
-            <div style={{ width: 1, background: 'rgba(249,115,22,0.2)', margin: '4px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>{matches}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Matches</span>
-            </div>
-            <div style={{ width: 1, background: 'rgba(249,115,22,0.2)', margin: '4px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>{avgStr}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Avg/Game</span>
-            </div>
-            <div style={{ width: 1, background: 'rgba(249,115,22,0.2)', margin: '4px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#f97316' }}>{playerCount}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Players</span>
-            </div>
-          </div>
-
-          {/* Tournament box */}
-          <div
-            style={{
-              background: 'rgba(249,115,22,0.07)',
-              border: '1px solid rgba(249,115,22,0.2)',
-              borderRadius: 8,
-              padding: '8px 20px',
+              background: 'rgba(29,78,216,0.12)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              borderRadius: 6,
+              padding: '6px 20px',
               textAlign: 'center',
-              marginBottom: 14,
-              width: '90%',
+              marginBottom: 8,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
             }}
           >
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.8)', letterSpacing: 1 }}>
               {tournamentTitle}
             </span>
-            <span style={{ fontSize: 9, color: 'rgba(249,115,22,0.55)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 2 }}>
+            <span style={{ fontSize: 9, color: 'rgba(147,197,253,0.45)', letterSpacing: 2, marginTop: 2, textTransform: 'uppercase' }}>
               {dateStr}
             </span>
           </div>
 
-          {/* Bottom */}
-          <span
-            style={{
-              fontSize: 9,
-              letterSpacing: 4,
-              textTransform: 'uppercase',
-              color: 'rgba(249,115,22,0.4)',
-              marginBottom: 6,
-            }}
-          >
-            Skill · Precision · Glory
-          </span>
-          <span style={{ fontSize: 8, letterSpacing: 2, color: 'rgba(255,255,255,0.12)', textTransform: 'uppercase' }}>
+          {/* Bottom tagline */}
+          <span style={{ fontSize: 8, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(147,197,253,0.25)' }}>
             efootballcup.vercel.app
           </span>
+        </div>
+
+        {/* Boot badge — bottom right */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            opacity: 0.7,
+          }}
+        >
+          <span style={{ fontSize: 28 }}>👟</span>
+          <span style={{ fontSize: 7, letterSpacing: 1, textTransform: 'uppercase', color: 'rgba(234,179,8,0.6)', marginTop: 2 }}>Golden Boot</span>
         </div>
       </div>
     ),

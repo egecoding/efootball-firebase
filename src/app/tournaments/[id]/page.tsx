@@ -209,15 +209,19 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 Join Tournament
               </Link>
             )}
-            {showCards && tournament.status === 'completed' && (
-              <CardDownloadButtons
-                tournamentId={params.id}
-                showWinner={isOrganizer || isWinner}
-                showTopScorer={isOrganizer || isTopScorer}
-              />
-            )}
           </div>
         </div>
+
+        {/* Card previews — shown below header for completed tournaments */}
+        {showCards && tournament.status === 'completed' && (
+          <div className="mt-8">
+            <CardDownloadButtons
+              tournamentId={params.id}
+              showWinner={isOrganizer || isWinner}
+              showTopScorer={isOrganizer || isTopScorer}
+            />
+          </div>
+        )}
 
         {/* Organizer */}
         <div className="flex items-center gap-2 mt-4">

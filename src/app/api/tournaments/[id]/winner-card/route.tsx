@@ -41,7 +41,6 @@ export async function GET(
   const format = (tournament as unknown as { format?: string }).format ?? 'knockout'
 
   if (format === 'knockout') {
-    // Winner = winner_id of the match in the last round
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,13 +56,11 @@ export async function GET(
       winnerName = prof?.display_name ?? prof?.username ?? 'Champion'
       winnerAvatar = prof?.avatar_url ?? null
     } else if (finalMatch) {
-      // Name-only winner
       const p1Score = finalMatch.player1_score ?? 0
       const p2Score = finalMatch.player2_score ?? 0
       winnerName = p1Score > p2Score ? (finalMatch.player1_name ?? 'Champion') : (finalMatch.player2_name ?? 'Champion')
     }
   } else {
-    // League / Round robin: top of standings
     const standings = calcStandings(completedMatches, format, profileMap)
     const top = standings[0]
     if (top) {
@@ -77,31 +74,28 @@ export async function GET(
     return new Response('Winner not determined yet', { status: 404 })
   }
 
-  // Avatar data URI
   const avatarDataUri = winnerAvatar ? await toDataUri(winnerAvatar) : null
 
-  // Tournament metadata
-  const tournamentTitle = tournament.title ?? 'Tournament'
+  const tournamentTitle = (tournament.title ?? 'Tournament').toUpperCase()
   const dateStr = tournament.starts_at
     ? new Date(tournament.starts_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : new Date().getFullYear().toString()
   const playerCount = participants?.length ?? 0
-  const formatLabel = format === 'knockout' ? 'Knockout' : format === 'league' ? 'League' : 'Round Robin'
+  const formatLabel = format === 'knockout' ? 'Knockout' : format === 'league' ? 'League' : format === 'champions_league' ? 'Champions League' : 'Round Robin'
 
-  // Win record
   let winsCount = 0
   if (winnerId) {
     winsCount = completedMatches.filter(
       (m) => (m as unknown as { winner_id?: string | null }).winner_id === winnerId
     ).length
   } else {
-    // Name-based winner: count wins by name
     const standings = calcStandings(completedMatches, format, profileMap)
     winsCount = standings[0]?.pts ? Math.floor(standings[0].pts / 3) : 0
   }
-  const recordStr = `${winsCount}W`
 
-  // Initial letter for fallback avatar
+  const displayName = winnerName.toUpperCase()
+  const displayNameTrunc = displayName.length > 16 ? displayName.slice(0, 15) + '…' : displayName
+  const nameFontSize = displayName.length > 12 ? 22 : 30
   const initial = winnerName.charAt(0).toUpperCase()
 
   return new ImageResponse(
@@ -110,7 +104,7 @@ export async function GET(
         style={{
           width: 420,
           height: 600,
-          background: '#000',
+          background: '#0e0900',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -119,59 +113,43 @@ export async function GET(
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
-        {/* Background glow layers */}
+        {/* Background gradient */}
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(160deg, #1a1000 0%, #0e0900 50%, #070500 100%)' }} />
+
+        {/* Central spotlight */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse 80% 60% at 50% 70%, rgba(212,175,55,0.22) 0%, transparent 70%)',
+            top: 140,
+            left: '50%',
+            width: 380,
+            height: 380,
+            marginLeft: -190,
+            background: 'radial-gradient(circle, rgba(212,175,55,0.22) 0%, rgba(180,130,0,0.1) 45%, transparent 70%)',
+            borderRadius: '50%',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse 120% 40% at 50% 100%, rgba(180,120,0,0.28) 0%, transparent 60%)',
+            top: 60,
+            left: '50%',
+            width: 320,
+            height: 200,
+            marginLeft: -160,
+            background: 'radial-gradient(ellipse, rgba(255,220,80,0.08) 0%, transparent 70%)',
+            borderRadius: '50%',
           }}
         />
 
-        {/* Confetti dots scattered */}
-        {[
-          { top: 40, left: 30, color: '#d4af37', size: 4 },
-          { top: 60, left: 80, color: '#ffe566', size: 3 },
-          { top: 80, left: 160, color: '#fff', size: 2 },
-          { top: 50, left: 320, color: '#fbbf24', size: 4 },
-          { top: 100, left: 370, color: '#d4af37', size: 3 },
-          { top: 120, left: 40, color: '#f59e0b', size: 2 },
-          { top: 140, left: 200, color: '#ffe566', size: 3 },
-          { top: 30, left: 250, color: '#d4af37', size: 5 },
-          { top: 170, left: 390, color: '#fff', size: 2 },
-          { top: 20, left: 140, color: '#fcd34d', size: 3 },
-          { top: 90, left: 290, color: '#f97316', size: 4 },
-          { top: 150, left: 110, color: '#d4af37', size: 2 },
-          { top: 500, left: 30, color: '#ffe566', size: 3 },
-          { top: 520, left: 380, color: '#d4af37', size: 4 },
-          { top: 540, left: 200, color: '#fff', size: 2 },
-          { top: 560, left: 100, color: '#fbbf24', size: 3 },
-          { top: 480, left: 310, color: '#f59e0b', size: 4 },
-        ].map((dot, i) => (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              top: dot.top,
-              left: dot.left,
-              width: dot.size,
-              height: dot.size * 2,
-              background: dot.color,
-              borderRadius: 1,
-              transform: `rotate(${i * 37}deg)`,
-              opacity: 0.7,
-            }}
-          />
-        ))}
+        {/* Top accent bar */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #92400e, #d4af37, #f5d76e, #d4af37, #92400e)' }} />
 
-        {/* Inner content */}
+        {/* Side accent lines */}
+        <div style={{ position: 'absolute', top: 3, left: 0, width: 3, height: 597, background: 'linear-gradient(180deg, #d4af37 0%, rgba(212,175,55,0.05) 100%)' }} />
+        <div style={{ position: 'absolute', top: 3, right: 0, width: 3, height: 597, background: 'linear-gradient(180deg, #d4af37 0%, rgba(212,175,55,0.05) 100%)' }} />
+
+        {/* Content */}
         <div
           style={{
             position: 'relative',
@@ -180,259 +158,199 @@ export async function GET(
             flexDirection: 'column',
             alignItems: 'center',
             width: '100%',
-            padding: '24px 20px 28px',
+            padding: '20px 24px 20px',
           }}
         >
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div
-              style={{
-                width: 28,
-                height: 28,
-                background: 'linear-gradient(135deg, #d4af37, #f5d76e)',
-                borderRadius: 6,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 16,
-              }}
-            >
-              ⚽
-            </div>
+          {/* Org label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+            <div style={{ width: 20, height: 20, borderRadius: 4, background: 'linear-gradient(135deg, #92400e, #d4af37)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>⚽</div>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(245,215,110,0.7)' }}>eFootball Cup</span>
+          </div>
+
+          {/* TOURNAMENT CHAMPION headline */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 4 }}>
             <span
               style={{
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: 3,
+                fontSize: 38,
+                fontWeight: 900,
+                lineHeight: 1,
+                letterSpacing: 6,
                 textTransform: 'uppercase',
-                color: '#d4af37',
+                color: 'rgba(245,215,110,0.6)',
+                textAlign: 'center',
               }}
             >
-              eFootball Cup
+              TOURNAMENT
+            </span>
+            <span
+              style={{
+                fontSize: 90,
+                fontWeight: 900,
+                lineHeight: 0.88,
+                letterSpacing: -3,
+                textTransform: 'uppercase',
+                background: 'linear-gradient(180deg, #f5d76e 0%, #d4af37 40%, #8b6914 100%)',
+                backgroundClip: 'text',
+                color: 'transparent',
+                textAlign: 'center',
+              }}
+            >
+              WINNER
             </span>
           </div>
-          <span
-            style={{
-              fontSize: 10,
-              letterSpacing: 4,
-              textTransform: 'uppercase',
-              color: 'rgba(212,175,55,0.5)',
-              marginBottom: 14,
-            }}
-          >
-            Tournament
-          </span>
 
-          {/* WINNER */}
-          <div
-            style={{
-              fontSize: 84,
-              fontWeight: 900,
-              lineHeight: 0.9,
-              textTransform: 'uppercase',
-              letterSpacing: -3,
-              background: 'linear-gradient(180deg, #ffe566 0%, #d4af37 45%, #8b6914 100%)',
-              backgroundClip: 'text',
-              color: 'transparent',
-              textAlign: 'center',
-              marginBottom: 6,
-            }}
-          >
-            WINNER
-          </div>
+          {/* Gold accent rule */}
+          <div style={{ width: 260, height: 2, background: 'linear-gradient(90deg, transparent, #d4af37, transparent)', borderRadius: 2, marginBottom: 16 }} />
 
-          {/* Brush stroke */}
-          <div
-            style={{
-              width: 300,
-              height: 6,
-              background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.8), transparent)',
-              borderRadius: 4,
-              marginBottom: 18,
-            }}
-          />
-
-          {/* Taglines */}
-          <div
-            style={{
-              width: '100%',
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '0 8px',
-              marginBottom: 14,
-            }}
-          >
+          {/* Avatar — large focal point */}
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+            {/* Outer glow ring */}
             <div
               style={{
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-                lineHeight: 1.6,
-                color: 'rgba(212,175,55,0.7)',
-                display: 'flex',
-                flexDirection: 'column',
+                position: 'absolute',
+                width: 196,
+                height: 196,
+                borderRadius: '50%',
+                background: 'transparent',
+                border: '2px solid rgba(212,175,55,0.4)',
+                boxShadow: '0 0 40px rgba(212,175,55,0.25)',
               }}
-            >
-              <span>THE</span><span>UNSTOPPABLE</span><span>FORCE</span>
-            </div>
+            />
+            {/* Inner ring */}
             <div
               style={{
-                fontSize: 9,
-                fontWeight: 800,
-                letterSpacing: 1.5,
-                textTransform: 'uppercase',
-                lineHeight: 1.6,
-                color: 'rgba(212,175,55,0.7)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-end',
+                position: 'absolute',
+                width: 178,
+                height: 178,
+                borderRadius: '50%',
+                background: 'transparent',
+                border: '2px solid rgba(245,215,110,0.6)',
               }}
-            >
-              <span>VICTORY</span><span>IS</span><span>EARNED</span>
-            </div>
-          </div>
-
-          {/* Trophy + Avatar */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 18 }}>
-            <div style={{ fontSize: 72, lineHeight: 1, marginBottom: -6 }}>🏆</div>
-
+            />
             {/* Avatar circle */}
             <div
               style={{
-                width: 80,
-                height: 80,
+                width: 164,
+                height: 164,
                 borderRadius: '50%',
-                background: avatarDataUri ? 'transparent' : 'linear-gradient(135deg, #1a1a1a, #333)',
+                background: avatarDataUri ? 'transparent' : 'linear-gradient(135deg, #3d2900, #1a1000)',
                 border: '3px solid #d4af37',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: 32,
+                fontSize: 52,
                 fontWeight: 900,
                 color: '#d4af37',
                 overflow: 'hidden',
-                position: 'relative',
-                marginBottom: 12,
               }}
             >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: -14,
-                  fontSize: 20,
-                }}
-              >
-                👑
-              </div>
               {avatarDataUri ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarDataUri} alt="" style={{ width: 80, height: 80, objectFit: 'cover' }} />
+                <img src={avatarDataUri} alt="" style={{ width: 164, height: 164, objectFit: 'cover' }} />
               ) : (
                 <span>{initial}</span>
               )}
             </div>
+          </div>
 
-            {/* Player name */}
-            <div
-              style={{
-                fontSize: winnerName.length > 14 ? 22 : 28,
-                fontWeight: 900,
-                color: '#fff',
-                letterSpacing: -0.5,
-                textAlign: 'center',
-                marginBottom: 4,
-              }}
-            >
-              {winnerName}
+          {/* Player name */}
+          <div
+            style={{
+              fontSize: nameFontSize,
+              fontWeight: 900,
+              color: '#ffffff',
+              letterSpacing: 2,
+              textAlign: 'center',
+              marginBottom: 4,
+            }}
+          >
+            {displayNameTrunc}
+          </div>
+
+          {/* Champion label */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 40, height: 1, background: 'rgba(212,175,55,0.5)' }} />
+            <span style={{ fontSize: 11, color: 'rgba(245,215,110,0.7)', letterSpacing: 4, textTransform: 'uppercase', fontWeight: 700 }}>CHAMPION</span>
+            <div style={{ width: 40, height: 1, background: 'rgba(212,175,55,0.5)' }} />
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 20, marginBottom: 14, width: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: '#d4af37' }}>{playerCount}</span>
+              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.3)' }}>Players</span>
             </div>
-            <div
-              style={{
-                fontSize: 10,
-                letterSpacing: 3,
-                textTransform: 'uppercase',
-                color: 'rgba(212,175,55,0.6)',
-                marginBottom: 16,
-              }}
-            >
-              Champion · {new Date().getFullYear()}
+            <div style={{ width: 1, background: 'rgba(212,175,55,0.2)', margin: '4px 0' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 20, fontWeight: 900, color: '#d4af37' }}>{winsCount}</span>
+              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.3)' }}>Wins</span>
+            </div>
+            <div style={{ width: 1, background: 'rgba(212,175,55,0.2)', margin: '4px 0' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <span style={{ fontSize: 11, fontWeight: 900, color: '#d4af37', letterSpacing: 1 }}>{formatLabel.toUpperCase()}</span>
+              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.3)' }}>Format</span>
             </div>
           </div>
 
           {/* Divider */}
-          <div
-            style={{
-              width: '100%',
-              height: 1,
-              background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)',
-              marginBottom: 14,
-            }}
-          />
+          <div style={{ width: '88%', height: 1, background: 'linear-gradient(90deg, transparent, rgba(212,175,55,0.5), transparent)', marginBottom: 12 }} />
 
-          {/* Stats row */}
+          {/* Tournament name box */}
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'center',
-              gap: 24,
-              marginBottom: 16,
-              width: '100%',
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#d4af37' }}>{playerCount}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Players</span>
-            </div>
-            <div style={{ width: 1, background: 'rgba(212,175,55,0.2)', margin: '4px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#d4af37' }}>⚡</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>{formatLabel}</span>
-            </div>
-            <div style={{ width: 1, background: 'rgba(212,175,55,0.2)', margin: '4px 0' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-              <span style={{ fontSize: 18, fontWeight: 900, color: '#d4af37' }}>{recordStr}</span>
-              <span style={{ fontSize: 8, textTransform: 'uppercase', letterSpacing: 2, color: 'rgba(255,255,255,0.35)' }}>Record</span>
-            </div>
-          </div>
-
-          {/* Tournament box */}
-          <div
-            style={{
-              background: 'rgba(212,175,55,0.07)',
-              border: '1px solid rgba(212,175,55,0.2)',
-              borderRadius: 8,
-              padding: '8px 20px',
+              background: 'rgba(212,175,55,0.08)',
+              border: '1px solid rgba(212,175,55,0.22)',
+              borderRadius: 6,
+              padding: '7px 20px',
               textAlign: 'center',
-              marginBottom: 16,
-              width: '90%',
+              marginBottom: 8,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
             }}
           >
-            <span style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.82)', letterSpacing: 1 }}>
               {tournamentTitle}
             </span>
-            <span style={{ fontSize: 9, color: 'rgba(212,175,55,0.55)', letterSpacing: 2, textTransform: 'uppercase', marginTop: 2 }}>
+            <span style={{ fontSize: 9, color: 'rgba(245,215,110,0.45)', letterSpacing: 2, marginTop: 2, textTransform: 'uppercase' }}>
               {dateStr}
             </span>
           </div>
 
-          {/* Bottom */}
-          <span
-            style={{
-              fontSize: 9,
-              letterSpacing: 4,
-              textTransform: 'uppercase',
-              color: 'rgba(212,175,55,0.4)',
-              marginBottom: 6,
-            }}
-          >
-            Passion · Focus · Victory
-          </span>
-          <span style={{ fontSize: 8, letterSpacing: 2, color: 'rgba(255,255,255,0.12)', textTransform: 'uppercase' }}>
+          {/* Bottom tagline */}
+          <span style={{ fontSize: 8, letterSpacing: 3, textTransform: 'uppercase', color: 'rgba(212,175,55,0.2)' }}>
             efootballcup.vercel.app
           </span>
+        </div>
+
+        {/* Trophy badge — bottom right */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            opacity: 0.75,
+          }}
+        >
+          <span style={{ fontSize: 32 }}>🏆</span>
+        </div>
+
+        {/* Crown badge — bottom left */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 20,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            opacity: 0.6,
+          }}
+        >
+          <span style={{ fontSize: 26 }}>👑</span>
         </div>
       </div>
     ),

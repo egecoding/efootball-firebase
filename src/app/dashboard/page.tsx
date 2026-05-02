@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
 import { Button } from '@/components/ui/Button'
 import { MatchStatusBadge } from '@/components/ui/Badge'
+import { MyAchievements } from '@/components/dashboard/MyAchievements'
 import type { TournamentWithOrganizer } from '@/types/database'
 
 export default async function DashboardPage() {
@@ -106,6 +107,9 @@ export default async function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Awards */}
+      <MyAchievements />
 
       {/* My Matches */}
       {typedMyMatches.length > 0 && (
