@@ -106,9 +106,9 @@ export async function GET() {
     // Determine winner
     let winnerId: string | null = null
     if (t.format === 'knockout' || t.format === 'double_elimination' || t.format === 'group_knockout' || t.format === 'champions_league') {
-      // Last round's completed match winner
+      // Last round's completed match — winner_id may be null for guests
       const sorted = [...matches].sort((a, b) => (b.round_number ?? 0) - (a.round_number ?? 0))
-      const finalMatch = sorted.find((m) => m.winner_id)
+      const finalMatch = sorted.find((m) => (m as unknown as { status?: string }).status === 'completed' || m.winner_id)
       winnerId = finalMatch?.winner_id ?? null
     } else {
       // League / round robin: standings leader

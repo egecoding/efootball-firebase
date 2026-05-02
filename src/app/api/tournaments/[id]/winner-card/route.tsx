@@ -40,14 +40,15 @@ export async function GET(
 
   const format = (tournament as unknown as { format?: string }).format ?? 'knockout'
 
-  if (format === 'knockout') {
+  if (format === 'knockout' || format === 'group_knockout' || format === 'double_elimination' || format === 'champions_league') {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const finalRound = sortedRounds[0] as any
+    // Find completed final match — winner_id may be null for guest players
     const finalMatch = (finalRound?.matches ?? []).find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (m: any) => m.status === 'completed' && m.winner_id
+      (m: any) => m.status === 'completed'
     ) as (MatchRow & { winner_id?: string | null }) | undefined
 
     if (finalMatch?.winner_id) {
@@ -56,9 +57,12 @@ export async function GET(
       winnerName = prof?.display_name ?? prof?.username ?? 'Champion'
       winnerAvatar = prof?.avatar_url ?? null
     } else if (finalMatch) {
+      // Guest player — determine winner by score
       const p1Score = finalMatch.player1_score ?? 0
       const p2Score = finalMatch.player2_score ?? 0
-      winnerName = p1Score > p2Score ? (finalMatch.player1_name ?? 'Champion') : (finalMatch.player2_name ?? 'Champion')
+      winnerName = p1Score >= p2Score
+        ? (finalMatch.player1_name ?? 'Champion')
+        : (finalMatch.player2_name ?? 'Champion')
     }
   } else {
     const standings = calcStandings(completedMatches, format, profileMap)
