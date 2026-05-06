@@ -28,22 +28,30 @@ export function Navbar({ user, profile }: NavbarProps) {
     router.refresh()
   }
 
-  const navLinks = [
-    { href: '/tournaments', label: 'Tournaments' },
-    ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
-    ...(profile?.is_super_admin ? [{ href: '/admin', label: 'Admin' }] : []),
-  ]
+  // On the homepage show section anchor links; elsewhere show app links
+  const isHome = pathname === '/'
+  const navLinks = isHome
+    ? [
+        { href: '#features', label: 'Features' },
+        { href: '#how-it-works', label: 'How it works' },
+        { href: '#tournaments', label: 'Tournaments' },
+      ]
+    : [
+        { href: '/tournaments', label: 'Tournaments' },
+        ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
+        ...(profile?.is_super_admin ? [{ href: '/admin', label: 'Admin' }] : []),
+      ]
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200/80 dark:border-gray-800/80 bg-white/85 dark:bg-gray-950/85 backdrop-blur-lg">
+    <header className="sticky top-0 z-40 border-b border-gray-200/80 dark:border-gray-800/80 bg-white/90 dark:bg-gray-950/90 backdrop-blur-lg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center justify-between gap-4">
+        <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
           <Link
             href="/"
             className="flex items-center gap-2 font-extrabold text-lg shrink-0 group"
           >
-            <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-sm group-hover:shadow-brand-500/30 group-hover:shadow-md transition-shadow">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 flex items-center justify-center shadow-sm group-hover:shadow-brand-500/30 group-hover:shadow-md transition-shadow">
               <Trophy className="h-4 w-4 text-white" />
             </div>
             <span className="hidden sm:inline gradient-text">eFootball Cup</span>
@@ -52,17 +60,17 @@ export function Navbar({ user, profile }: NavbarProps) {
           {/* Desktop nav */}
           <nav className="hidden md:flex items-center gap-1">
             {navLinks.map((link) => (
-              <Link
+              <a
                 key={link.href}
                 href={link.href}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  pathname.startsWith(link.href)
+                  !isHome && pathname.startsWith(link.href)
                     ? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-white/10'
                 }`}
               >
                 {link.label}
-              </Link>
+              </a>
             ))}
           </nav>
 
@@ -80,6 +88,15 @@ export function Navbar({ user, profile }: NavbarProps) {
                 <Moon className="h-4 w-4" />
               )}
             </button>
+
+            {/* Create Tournament CTA — always visible to guests on desktop */}
+            {!user && (
+              <Link href="/auth/signup" className="hidden md:block">
+                <Button size="sm" className="gap-1.5">
+                  Create Tournament
+                </Button>
+              </Link>
+            )}
 
             {user ? (
               <div className="hidden md:flex items-center gap-2">
@@ -102,14 +119,11 @@ export function Navbar({ user, profile }: NavbarProps) {
                 </button>
               </div>
             ) : (
-              <div className="hidden md:flex items-center gap-2">
+              <div className="hidden md:flex items-center gap-1">
                 <Link href="/auth/login">
                   <Button variant="ghost" size="sm">
                     Sign in
                   </Button>
-                </Link>
-                <Link href="/auth/signup">
-                  <Button size="sm">Sign up</Button>
                 </Link>
               </div>
             )}
@@ -130,14 +144,14 @@ export function Navbar({ user, profile }: NavbarProps) {
       {menuOpen && (
         <div className="md:hidden border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 py-4 flex flex-col gap-3 animate-slide-up">
           {navLinks.map((link) => (
-            <Link
+            <a
               key={link.href}
               href={link.href}
               onClick={() => setMenuOpen(false)}
               className="text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-brand-600 dark:hover:text-brand-400 py-1"
             >
               {link.label}
-            </Link>
+            </a>
           ))}
           {user ? (
             <>

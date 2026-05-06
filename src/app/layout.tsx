@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
+import { Footer } from '@/components/layout/Footer'
+import { WhatsAppButton } from '@/components/layout/WhatsAppButton'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { PushPrompt } from '@/components/layout/PushPrompt'
 import { createClient } from '@/lib/supabase/server'
@@ -55,6 +57,8 @@ export default async function RootLayout({
         <ThemeProvider>
           <Navbar user={user} profile={profile} />
           <main>{children}</main>
+          <Footer />
+          <WhatsAppButton />
           <InstallPrompt />
           <PushPrompt />
         </ThemeProvider>
