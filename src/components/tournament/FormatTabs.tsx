@@ -47,6 +47,17 @@ const formats = [
     details: ['Group stage with standings', 'Top players advance', 'Knockout bracket finals', 'Ideal for 8–16 players'],
     tagColor: 'bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
   },
+  {
+    id: 'home_away_knockout',
+    label: 'Home & Away',
+    emoji: '🔁',
+    color: 'text-teal-500',
+    activeBg: 'bg-teal-500',
+    title: 'Two-Legged Knockout',
+    desc: 'Every knockout round is played over two legs — home and away. The aggregate score decides who advances, just like UEFA Champions League knockouts.',
+    details: ['Two legs per round (home & away)', 'Aggregate goals decide the winner', 'Away goals rule on aggregate draw', 'Single-match final'],
+    tagColor: 'bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
+  },
 ]
 
 export function FormatTabs() {

@@ -78,7 +78,7 @@ export async function POST(
     (tournament.format === 'champions_league' && match.bracket !== 'league') // playoff + KO rounds
 
   // Two-legged ties (group_knockout knockout phase) allow draws per leg — aggregate decides
-  const isTwoLeggedLeg = tournament.format === 'group_knockout' && match.tie_id !== null && match.tie_id !== undefined
+  const isTwoLeggedLeg = (tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id !== null && match.tie_id !== undefined
 
   if (p1Score === p2Score && isKnockoutPhase && !isTwoLeggedLeg) {
     return NextResponse.json({ error: 'Cannot confirm a draw in a knockout match' }, { status: 400 })
@@ -152,13 +152,13 @@ export async function POST(
   // ── Two-legged tie logic (group_knockout knockout phase) ─────────────────
   // Leg 1 completed → unlock leg 2 (schedule it)
   // Leg 2 completed → aggregate both legs and advance winner
-  if (tournament.format === 'group_knockout' && match.tie_id && match.leg === 1 && match.next_match_id) {
+  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 1 && match.next_match_id) {
     // Leg 1 done — schedule leg 2
     await admin.from('matches').update({ status: 'scheduled' }).eq('id', match.next_match_id)
     return NextResponse.json({ status: 'completed', winner_id })
   }
 
-  if (tournament.format === 'group_knockout' && match.tie_id && match.leg === 2) {
+  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 2) {
     // Fetch leg 1 (other match in same tie)
     const { data: leg1 } = await admin
       .from('matches')
@@ -306,8 +306,9 @@ export async function POST(
     let allDone = false
 
     if (fmt === 'knockout') {
-      // Final has no next_match_id
       allDone = !match.next_match_id
+    } else if (fmt === 'home_away_knockout') {
+      allDone = !match.next_match_id && !match.tie_id
     } else if (fmt === 'double_elimination') {
       allDone = match.bracket === 'grand_final'
     } else if (fmt === 'champions_league') {

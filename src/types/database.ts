@@ -1,5 +1,5 @@
 export type TournamentStatus = 'draft' | 'open' | 'in_progress' | 'completed'
-export type TournamentFormat = 'knockout' | 'round_robin' | 'league' | 'group_knockout' | 'double_elimination' | 'champions_league'
+export type TournamentFormat = 'knockout' | 'round_robin' | 'league' | 'group_knockout' | 'double_elimination' | 'champions_league' | 'home_away_knockout'
 export type MatchStatus =
   | 'pending'
   | 'scheduled'
@@ -73,6 +73,8 @@ export interface Match {
   played_at: string | null
   created_at: string
   updated_at: string
+  tie_id: string | null
+  leg: number | null
 }
 
 export interface ResultSubmission {

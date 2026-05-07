@@ -56,6 +56,10 @@ export async function POST(
     if (participants.length < 4)
       return NextResponse.json({ error: 'Champions League format requires at least 4 participants' }, { status: 409 })
     return startChampionsLeague(supabase, params.id, bracketParticipants)
+  } else if (format === 'home_away_knockout') {
+    if (participants.length < 2)
+      return NextResponse.json({ error: 'Need at least 2 participants' }, { status: 409 })
+    return startHomeAwayKnockout(supabase, params.id, bracketParticipants)
   } else {
     return startRoundRobin(supabase, params.id, bracketParticipants, format)
   }
@@ -411,6 +415,146 @@ async function startChampionsLeague(
   await supabase.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId)
 
   return NextResponse.json({ success: true, totalRounds, matches: insertedMatches.length })
+}
+
+async function startHomeAwayKnockout(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  tournamentId: string,
+  bracketParticipants: { id: string | null; name: string | null; participantId: string }[]
+) {
+  const bracketMatches = generateBracket(bracketParticipants)
+  const totalBracketRounds = Math.max(...bracketMatches.map((m) => m.roundNumber))
+
+  const roundsPayload: { tournament_id: string; round_number: number; round_name: string; phase: string }[] = []
+  const bracketRoundToDbRounds = new Map<number, { leg1: number; leg2: number | null }>()
+  let dbRoundNum = 1
+
+  for (let br = 1; br <= totalBracketRounds; br++) {
+    const baseName = getRoundName(br, totalBracketRounds)
+    if (br < totalBracketRounds) {
+      bracketRoundToDbRounds.set(br, { leg1: dbRoundNum, leg2: dbRoundNum + 1 })
+      roundsPayload.push({ tournament_id: tournamentId, round_number: dbRoundNum, round_name: `${baseName} — 1st Leg`, phase: 'knockout' })
+      roundsPayload.push({ tournament_id: tournamentId, round_number: dbRoundNum + 1, round_name: `${baseName} — 2nd Leg`, phase: 'knockout' })
+      dbRoundNum += 2
+    } else {
+      bracketRoundToDbRounds.set(br, { leg1: dbRoundNum, leg2: null })
+      roundsPayload.push({ tournament_id: tournamentId, round_number: dbRoundNum, round_name: 'Final', phase: 'knockout' })
+      dbRoundNum += 1
+    }
+  }
+
+  const { data: insertedRounds, error: roundsError } = await supabase.from('rounds').insert(roundsPayload).select()
+  if (roundsError) return NextResponse.json({ error: roundsError.message }, { status: 500 })
+
+  const dbRoundNumToId = new Map<number, string>(insertedRounds.map((r: { round_number: number; id: string }) => [r.round_number, r.id]))
+
+  const matchesPayload: object[] = []
+  const bracketMatchToLegNums = new Map<number, { leg1: number; leg2: number | null; tieId: string | null }>()
+  let globalMatchNum = 1
+
+  for (const bm of bracketMatches) {
+    const dbRounds = bracketRoundToDbRounds.get(bm.roundNumber)!
+    const isFinal = dbRounds.leg2 === null
+
+    if (isFinal) {
+      const num = globalMatchNum++
+      bracketMatchToLegNums.set(bm.matchNumber, { leg1: num, leg2: null, tieId: null })
+      matchesPayload.push({
+        tournament_id: tournamentId,
+        round_id: dbRoundNumToId.get(dbRounds.leg1),
+        match_number: num,
+        player1_id: bm.player1Id, player1_name: bm.player1Name,
+        player2_id: bm.player2Id, player2_name: bm.player2Name,
+        status: determineStatus(bm.player1Id !== null || bm.player1Name !== null, bm.player2Id !== null || bm.player2Name !== null),
+      })
+    } else {
+      const leg1Num = globalMatchNum++
+      const leg2Num = globalMatchNum++
+      const tieId = crypto.randomUUID()
+      bracketMatchToLegNums.set(bm.matchNumber, { leg1: leg1Num, leg2: leg2Num, tieId })
+
+      matchesPayload.push({
+        tournament_id: tournamentId,
+        round_id: dbRoundNumToId.get(dbRounds.leg1),
+        match_number: leg1Num,
+        player1_id: bm.player1Id, player1_name: bm.player1Name,
+        player2_id: bm.player2Id, player2_name: bm.player2Name,
+        tie_id: tieId, leg: 1,
+        status: determineStatus(bm.player1Id !== null || bm.player1Name !== null, bm.player2Id !== null || bm.player2Name !== null),
+      })
+
+      matchesPayload.push({
+        tournament_id: tournamentId,
+        round_id: dbRoundNumToId.get(dbRounds.leg2!),
+        match_number: leg2Num,
+        player1_id: bm.player2Id, player1_name: bm.player2Name,
+        player2_id: bm.player1Id, player2_name: bm.player1Name,
+        tie_id: tieId, leg: 2,
+        next_match_slot: bm.nextMatchSlot,
+        status: 'pending',
+      })
+    }
+  }
+
+  const { data: insertedMatches, error: matchesError } = await supabase.from('matches').insert(matchesPayload).select()
+  if (matchesError) return NextResponse.json({ error: matchesError.message }, { status: 500 })
+
+  const matchNumToId = new Map<number, string>(insertedMatches.map((m: { match_number: number; id: string }) => [m.match_number, m.id]))
+
+  for (const bm of bracketMatches) {
+    const legs = bracketMatchToLegNums.get(bm.matchNumber)!
+    if (legs.leg2 === null) continue
+
+    const leg1Id = matchNumToId.get(legs.leg1)!
+    const leg2Id = matchNumToId.get(legs.leg2)!
+
+    await supabase.from('matches').update({ next_match_id: leg2Id }).eq('id', leg1Id)
+
+    if (bm.nextMatchNumber !== null) {
+      const nextLegs = bracketMatchToLegNums.get(bm.nextMatchNumber)
+      if (nextLegs) {
+        const nextLeg1Id = matchNumToId.get(nextLegs.leg1)
+        if (nextLeg1Id) {
+          await supabase.from('matches').update({ next_match_id: nextLeg1Id }).eq('id', leg2Id)
+        }
+      }
+    }
+  }
+
+  for (const match of insertedMatches) {
+    const hasP1 = match.player1_id !== null || match.player1_name !== null
+    const hasP2 = match.player2_id !== null || match.player2_name !== null
+    if ((hasP1 && !hasP2) || (!hasP1 && hasP2)) {
+      const winner_id = hasP1 ? match.player1_id : match.player2_id
+      const winner_name = hasP1 ? match.player1_name : match.player2_name
+      await supabase.from('matches').update({ winner_id, status: 'walkover' }).eq('id', match.id)
+
+      if (match.leg === 1 && match.next_match_id) {
+        const { data: leg2 } = await supabase.from('matches').select('id, next_match_id, next_match_slot').eq('id', match.next_match_id).single()
+        if (leg2) {
+          await supabase.from('matches').update({ winner_id, status: 'walkover', player1_id: winner_id, player1_name: winner_name }).eq('id', leg2.id)
+          if (leg2.next_match_id && leg2.next_match_slot) {
+            const idField = leg2.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+            const nameField = leg2.next_match_slot === 1 ? 'player1_name' : 'player2_name'
+            await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' }).eq('id', leg2.next_match_id)
+          }
+        }
+      }
+      if (!match.leg && match.next_match_id && match.next_match_slot) {
+        const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+        const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
+        await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' }).eq('id', match.next_match_id)
+      }
+    }
+  }
+
+  await supabase.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId)
+  for (let i = 0; i < bracketParticipants.length; i++) {
+    await supabase.from('participants').update({ seed: i + 1 }).eq('id', bracketParticipants[i].participantId)
+  }
+
+  return NextResponse.json({ success: true, rounds: insertedRounds.length, matches: insertedMatches.length })
 }
 
 function determineStatus(hasP1: boolean, hasP2: boolean): 'pending' | 'scheduled' | 'walkover' {

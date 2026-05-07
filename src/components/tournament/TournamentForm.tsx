@@ -20,6 +20,7 @@ interface TournamentFormData {
 const FORMAT_OPTIONS: { value: TournamentFormat; label: string; desc: string }[] = [
   { value: 'knockout', label: 'Knockout', desc: "Single-elimination bracket. Lose once and you're out." },
   { value: 'double_elimination', label: 'Double Elimination', desc: "Lose once → drop to losers bracket. Eliminated after second loss. Grand Final crowns the champion." },
+  { value: 'home_away_knockout', label: 'Home & Away Knockout', desc: 'Each round is played over two legs (home & away). The aggregate score over both legs decides who advances.' },
   { value: 'group_knockout', label: 'Group Stage + Knockout', desc: 'Players split into groups. Top finishers from each group advance to a knockout bracket.' },
   { value: 'champions_league', label: 'Champions League', desc: 'Swiss-style league phase (6 rounds). Top teams auto-qualify, mid-table play playoffs, rest eliminated. Then full knockout.' },
   { value: 'round_robin', label: 'Round Robin', desc: 'Everyone plays everyone. Most wins takes the title.' },

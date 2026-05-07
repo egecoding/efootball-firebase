@@ -9,6 +9,9 @@ import { ScheduleView } from '@/components/tournament/ScheduleView'
 import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
 import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons'
+import { AnnouncementBanner } from '@/components/tournament/AnnouncementBanner'
+import { RealtimeRefresh } from '@/components/tournament/RealtimeRefresh'
+import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView'
 import { calcStandings, calcTopScorer, type MatchRow } from '@/lib/utils/card-helpers'
 import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
 
@@ -42,7 +45,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       supabase
         .from('rounds')
         .select(
-          'id, tournament_id, round_number, round_name, phase, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, group_name, bracket)'
+          'id, tournament_id, round_number, round_name, phase, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, group_name, bracket, tie_id, leg)'
         )
         .eq('tournament_id', params.id)
         .order('round_number', { ascending: true }),
@@ -137,7 +140,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
 
   let winnerId: string | null = null
   if (tournament.status === 'completed') {
-    if (tournamentFormat === 'knockout') {
+    if (tournamentFormat === 'knockout' || tournamentFormat === 'home_away_knockout') {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -161,6 +164,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
 
   return (
     <div className="page-container">
+      <RealtimeRefresh tournamentId={tournament.id} />
       {/* Header */}
       <div className="mb-8">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -243,6 +247,11 @@ export default async function TournamentDetailPage({ params }: PageProps) {
         </div>
       </div>
 
+      {/* Announcements */}
+      <div className="mb-6">
+        <AnnouncementBanner tournamentId={tournament.id} isOrganizer={isOrganizer} />
+      </div>
+
       {/* ── Your Match CTA ── shown to logged-in players with an active match */}
       {myActiveMatch && (
         <div className="mb-8 rounded-xl border border-brand-400/40 dark:border-brand-600/40 bg-brand-50 dark:bg-brand-900/20 p-5">
@@ -283,6 +292,14 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 rounds={rounds as unknown as RoundWithMatches[]}
                 currentUserId={user?.id}
                 organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
+            </>
+          ) : tournamentFormat === 'home_away_knockout' ? (
+            <>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
+              <HomeAwayBracketView
+                rounds={rounds as unknown as RoundWithMatches[]}
                 profileMap={profileMap}
               />
             </>
@@ -370,7 +387,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
         tournament.status === 'open' && (
           <div className="mb-10 rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
             <p className="text-gray-400 dark:text-gray-500">
-              {tournamentFormat === 'knockout' || tournamentFormat === 'double_elimination'
+              {tournamentFormat === 'knockout' || tournamentFormat === 'double_elimination' || tournamentFormat === 'home_away_knockout'
                 ? 'Bracket will appear once the organizer starts the tournament.'
                 : 'Schedule and standings will appear once the organizer starts the tournament.'}
             </p>

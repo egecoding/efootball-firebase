@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter, usePathname } from 'next/navigation'
-import { useState } from 'react'
-import { Trophy, Sun, Moon, Menu, X, LogOut, User, Shield } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Trophy, Sun, Moon, Menu, X, LogOut, User, Shield, Bell } from 'lucide-react'
 import { useTheme } from './ThemeProvider'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -18,8 +18,24 @@ interface NavbarProps {
 export function Navbar({ user, profile }: NavbarProps) {
   const { theme, toggle } = useTheme()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifs, setNotifs] = useState<{ id: string; type: string; title: string; body: string; url: string; created_at: string }[]>([])
   const router = useRouter()
   const pathname = usePathname()
+
+  useEffect(() => {
+    if (!notifOpen || !user) return
+    fetch('/api/me/notifications')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setNotifs(d) })
+  }, [notifOpen, user])
+
+  useEffect(() => {
+    if (!notifOpen) return
+    const h = () => setNotifOpen(false)
+    document.addEventListener('click', h)
+    return () => document.removeEventListener('click', h)
+  }, [notifOpen])
 
   async function handleSignOut() {
     const supabase = getClient()
@@ -38,6 +54,7 @@ export function Navbar({ user, profile }: NavbarProps) {
       ]
     : [
         { href: '/tournaments', label: 'Tournaments' },
+        { href: '/leaderboard', label: 'Leaderboard' },
         ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
         ...(profile?.is_super_admin ? [{ href: '/admin', label: 'Admin' }] : []),
       ]
@@ -76,6 +93,49 @@ export function Navbar({ user, profile }: NavbarProps) {
 
           {/* Actions */}
           <div className="flex items-center gap-2">
+            {/* Notification bell */}
+            {user && (
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button
+                  onClick={() => setNotifOpen((o) => !o)}
+                  className="rounded-lg p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors relative"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                  {notifs.length > 0 && (
+                    <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
+                  )}
+                </button>
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl z-50 overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 font-semibold text-sm text-gray-900 dark:text-white flex items-center justify-between">
+                      Notifications
+                      <button onClick={() => setNotifOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="max-h-96 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                      {notifs.length === 0 ? (
+                        <p className="px-4 py-6 text-sm text-gray-400 text-center">No notifications yet</p>
+                      ) : (
+                        notifs.map((n) => (
+                          <a
+                            key={n.id}
+                            href={n.url}
+                            onClick={() => setNotifOpen(false)}
+                            className="flex flex-col gap-0.5 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
+                          >
+                            <span className="text-xs font-semibold text-gray-900 dark:text-white">{n.title}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{n.body}</span>
+                            <span className="text-[10px] text-gray-400 mt-0.5">{new Date(n.created_at).toLocaleDateString()}</span>
+                          </a>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {/* Theme toggle */}
             <button
               onClick={toggle}
