@@ -21,7 +21,7 @@ export default async function MatchPage({ params }: PageProps) {
 
   // Use admin client so guests can view match details without a session.
   // Fall back to the regular client if the admin client fails (missing env var or schema permissions).
-  const MATCH_SELECT = 'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at'
+  const MATCH_SELECT = 'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, tie_id, leg'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let match: any = null
@@ -49,6 +49,21 @@ export default async function MatchPage({ params }: PageProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const typedMatch = match as any as Match & { player1_name?: string | null; player2_name?: string | null }
 
+  // Fetch partner leg for tie context
+  let partnerLeg: { id: string; leg: number | null; player1_score: number | null; player2_score: number | null; status: string } | null = null
+  const typedTieId = (typedMatch as unknown as { tie_id?: string | null }).tie_id ?? null
+  const typedLeg = (typedMatch as unknown as { leg?: number | null }).leg ?? null
+  if (typedTieId) {
+    const admin = createAdminClient()
+    const { data: plData } = await admin
+      .from('matches')
+      .select('id, leg, player1_score, player2_score, status')
+      .eq('tie_id', typedTieId)
+      .eq('leg', typedLeg === 1 ? 2 : 1)
+      .single()
+    partnerLeg = plData ?? null
+  }
+
   const playerIds = [typedMatch.player1_id, typedMatch.player2_id].filter(
     (id): id is string => id !== null
   )
@@ -74,7 +89,7 @@ export default async function MatchPage({ params }: PageProps) {
 
   const { data: tournament } = await supabase
     .from('tournaments')
-    .select('title, id, organizer_id')
+    .select('title, id, organizer_id, format')
     .eq('id', typedMatch.tournament_id)
     .single()
 
@@ -141,6 +156,36 @@ export default async function MatchPage({ params }: PageProps) {
             </div>
             <MatchStatusBadge status={typedMatch.status} />
           </div>
+
+          {typedTieId && (
+            <div className="mx-4 mt-2 mb-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm">
+              {typedLeg === 1 ? (
+                <p className="text-blue-700 dark:text-blue-300">
+                  <span className="font-semibold">Leg 1 of 2</span> — Play this match and submit your score. Leg 2 will be scheduled once the organizer confirms this result.
+                </p>
+              ) : typedLeg === 2 && partnerLeg?.status === 'completed' ? (
+                <div className="text-blue-700 dark:text-blue-300 space-y-1">
+                  <p className="font-semibold">Leg 2 of 2</p>
+                  <p>
+                    Leg 1 result:{' '}
+                    <span className="font-bold">{partnerLeg.player1_score}–{partnerLeg.player2_score}</span>
+                    {(() => {
+                      const l1p1 = partnerLeg.player1_score ?? 0
+                      const l1p2 = partnerLeg.player2_score ?? 0
+                      const diff = l1p1 - l1p2
+                      if (diff > 0) return <span className="ml-1 text-blue-500 dark:text-blue-400">(Home team leads by {diff} — away team needs to overturn)</span>
+                      if (diff < 0) return <span className="ml-1 text-blue-500 dark:text-blue-400">(Away team leads by {Math.abs(diff)} on aggregate)</span>
+                      return <span className="ml-1 text-blue-500 dark:text-blue-400">(Level — this leg decides it)</span>
+                    })()}
+                  </p>
+                </div>
+              ) : typedLeg === 2 ? (
+                <p className="text-blue-700 dark:text-blue-300">
+                  <span className="font-semibold">Leg 2 of 2</span> — Leg 1 is awaiting confirmation.
+                </p>
+              ) : null}
+            </div>
+          )}
 
           <div className="px-6 py-6">
             <div className="flex items-center justify-center gap-6 mb-8">

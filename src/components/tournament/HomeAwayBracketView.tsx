@@ -1,11 +1,14 @@
+import Link from 'next/link'
 import type { RoundWithMatches, MatchWithPlayers } from '@/types/database'
 
 interface HomeAwayBracketViewProps {
   rounds: RoundWithMatches[]
   profileMap: Record<string, { display_name: string | null; username: string | null; avatar_url: string | null }>
+  currentUserId?: string
+  organizerId?: string
 }
 
-export function HomeAwayBracketView({ rounds, profileMap }: HomeAwayBracketViewProps) {
+export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organizerId }: HomeAwayBracketViewProps) {
   const sorted = [...rounds].sort((a, b) => a.round_number - b.round_number)
 
   const stages: { name: string; leg1Matches: MatchWithPlayers[]; leg2Matches: MatchWithPlayers[] | null }[] = []
@@ -94,6 +97,38 @@ export function HomeAwayBracketView({ rounds, profileMap }: HomeAwayBracketViewP
                           : <span className="italic">pending</span>}
                       </span>
                     </div>
+                    {(() => {
+                      const isPlayerInTie = currentUserId && (
+                        leg1.player1_id === currentUserId || leg1.player2_id === currentUserId
+                      )
+                      const canAct = isPlayerInTie || (currentUserId && currentUserId === organizerId)
+                      if (!canAct) return null
+
+                      const leg1Status = leg1.status
+                      const leg2Status = leg2?.status ?? 'pending'
+
+                      return (
+                        <div className="flex flex-wrap gap-4 mt-2.5 pt-2.5 border-t border-gray-100 dark:border-gray-800">
+                          {(leg1Status === 'scheduled' || leg1Status === 'awaiting_confirmation') ? (
+                            <Link href={`/matches/${leg1.id}`} className="text-xs font-semibold text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                              Submit Leg 1 →
+                            </Link>
+                          ) : leg1Status === 'completed' || leg1Status === 'walkover' ? (
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400">✓ Leg 1 done</span>
+                          ) : null}
+
+                          {leg2Status === 'pending' ? (
+                            <span className="text-xs text-gray-400 italic">Leg 2 — awaiting Leg 1 confirmation</span>
+                          ) : (leg2Status === 'scheduled' || leg2Status === 'awaiting_confirmation') && leg2 ? (
+                            <Link href={`/matches/${leg2.id}`} className="text-xs font-semibold text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                              Submit Leg 2 →
+                            </Link>
+                          ) : (leg2Status === 'completed' || leg2Status === 'walkover') ? (
+                            <span className="text-xs font-medium text-green-600 dark:text-green-400">✓ Leg 2 done</span>
+                          ) : null}
+                        </div>
+                      )
+                    })()}
                   </div>
                 )
               })}

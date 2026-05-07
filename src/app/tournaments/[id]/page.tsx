@@ -86,6 +86,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
     player2_score: number | null
     winner_id?: string | null
     status: string
+    tie_id?: string | null
+    leg?: number | null
   }
   const allMatches: RawMatch[] = (rounds ?? []).flatMap(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -107,6 +109,14 @@ export default async function TournamentDetailPage({ params }: PageProps) {
 
   // ── Card download eligibility ──
   const tournamentFormat = (typedTournament as unknown as { format?: string }).format ?? 'knockout'
+
+  // For home_away_knockout: find partner leg 1 if active match is leg 2
+  const partnerLeg1ForCta = tournamentFormat === 'home_away_knockout' && myActiveMatch && (myActiveMatch as RawMatch & { leg?: number | null; tie_id?: string | null }).leg === 2
+    ? allMatches.find((m) => {
+        const rm = m as RawMatch & { tie_id?: string | null; leg?: number | null }
+        return rm.tie_id === (myActiveMatch as RawMatch & { tie_id?: string | null }).tie_id && rm.leg === 1
+      }) ?? null
+    : null
 
   // ── Per-group standings (group_knockout) ──
   type GroupMatch = RawMatch & { group_name?: string | null; bracket?: string | null }
@@ -263,6 +273,18 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                   Your Match — {myActiveMatch.status === 'awaiting_confirmation' ? 'Awaiting Confirmation' : 'Ready to Play'}
                 </span>
               </div>
+              {tournamentFormat === 'home_away_knockout' && (myActiveMatch as { tie_id?: string | null }).tie_id && (
+                <div className="mb-1">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wider">
+                    {(myActiveMatch as { leg?: number | null }).leg === 1 ? 'Leg 1 of 2' : 'Leg 2 of 2'}
+                  </span>
+                  {(myActiveMatch as { leg?: number | null }).leg === 2 && partnerLeg1ForCta && (partnerLeg1ForCta as { player1_score?: number | null }).player1_score !== null && (
+                    <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                      (Leg 1: {(partnerLeg1ForCta as { player1_score?: number | null; player2_score?: number | null }).player1_score}–{(partnerLeg1ForCta as { player1_score?: number | null; player2_score?: number | null }).player2_score})
+                    </span>
+                  )}
+                </div>
+              )}
               <p className="text-sm font-semibold text-gray-900 dark:text-white">
                 Match #{myActiveMatch.match_number} · vs{' '}
                 <span className="text-brand-600 dark:text-brand-400">{opponentName}</span>
@@ -301,6 +323,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
               <HomeAwayBracketView
                 rounds={rounds as unknown as RoundWithMatches[]}
                 profileMap={profileMap}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
               />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-4">Schedule</h2>
               <ScheduleView
@@ -308,6 +332,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 currentUserId={user?.id}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+                format={tournamentFormat}
               />
             </>
           ) : tournamentFormat === 'group_knockout' ? (
@@ -344,6 +369,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 currentUserId={user?.id}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+                format={tournamentFormat}
               />
             </>
           ) : tournamentFormat === 'champions_league' ? (
@@ -365,6 +391,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 currentUserId={user?.id}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+                format={tournamentFormat}
               />
             </>
           ) : (
@@ -386,6 +413,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 currentUserId={user?.id}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+                format={tournamentFormat}
               />
             </>
           )}

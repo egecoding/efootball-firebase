@@ -14,6 +14,7 @@ import { GuestPushPrompt } from '@/components/layout/GuestPushPrompt'
 import { SaveLinkBanner } from '@/components/layout/SaveLinkBanner'
 import { BracketView } from '@/components/tournament/BracketView'
 import { ScheduleView } from '@/components/tournament/ScheduleView'
+import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView'
 import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
 import type {
@@ -42,6 +43,8 @@ type ActiveMatch = {
   player2_id: string | null
   player2_name: string | null
   status: string
+  tie_id?: string | null
+  leg?: number | null
 }
 
 export function PlayerPortal({
@@ -276,6 +279,11 @@ export function PlayerPortal({
               </span>
             )}
           </div>
+          {format === 'home_away_knockout' && (myMatch as { tie_id?: string | null }).tie_id && (
+            <span className="inline-flex items-center text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider mb-1">
+              {(myMatch as { leg?: number | null }).leg === 1 ? 'Leg 1 of 2' : 'Leg 2 of 2'}
+            </span>
+          )}
           <p className="text-base font-semibold text-gray-900 dark:text-white mb-4">
             Match #{myMatch.match_number} · vs{' '}
             <span className="text-brand-600 dark:text-brand-400">{opponentName}</span>
@@ -429,7 +437,7 @@ export function PlayerPortal({
       {/* Bracket / Schedule / Standings */}
       {rounds.length > 0 && (
         <div className="mb-10">
-          {format === 'knockout' ? (
+          {format === 'knockout' || format === 'double_elimination' ? (
             <>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
               <BracketView
@@ -437,6 +445,24 @@ export function PlayerPortal({
                 currentUserId={currentUserId ?? undefined}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+              />
+            </>
+          ) : format === 'home_away_knockout' ? (
+            <>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bracket</h2>
+              <HomeAwayBracketView
+                rounds={rounds}
+                profileMap={profileMap}
+                currentUserId={participantId ? undefined : currentUserId ?? undefined}
+                organizerId={tournament.organizer_id}
+              />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-4">Schedule</h2>
+              <ScheduleView
+                rounds={rounds}
+                currentUserId={currentUserId ?? undefined}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+                format={format}
               />
             </>
           ) : (
@@ -457,6 +483,7 @@ export function PlayerPortal({
                 currentUserId={currentUserId ?? undefined}
                 organizerId={tournament.organizer_id}
                 profileMap={profileMap}
+                format={format}
               />
             </>
           )}
