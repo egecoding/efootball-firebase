@@ -302,6 +302,13 @@ export default async function TournamentDetailPage({ params }: PageProps) {
                 rounds={rounds as unknown as RoundWithMatches[]}
                 profileMap={profileMap}
               />
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-4">Schedule</h2>
+              <ScheduleView
+                rounds={rounds as unknown as RoundWithMatches[]}
+                currentUserId={user?.id}
+                organizerId={tournament.organizer_id}
+                profileMap={profileMap}
+              />
             </>
           ) : tournamentFormat === 'group_knockout' ? (
             <>
