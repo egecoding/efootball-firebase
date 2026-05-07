@@ -17,6 +17,8 @@ import { ScheduleView } from '@/components/tournament/ScheduleView'
 import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView'
 import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
+import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons'
+import { calcTopScorer } from '@/lib/utils/card-helpers'
 import type {
   TournamentWithOrganizer,
   ParticipantWithProfile,
@@ -212,6 +214,48 @@ export function PlayerPortal({
     : null
 
   const organizer = tournament.profiles as unknown as Profile | null
+  const isOrganizer = !!currentUserId && currentUserId === tournament.organizer_id
+
+  // Determine winner and top scorer for completed tournaments
+  const completedMatches = allMatches.filter((m) => (m as unknown as { status: string }).status === 'completed')
+  const cardProfileMap = new Map(
+    Object.entries(profileMap).map(([uid, p]) => [uid, { display_name: p.display_name, username: p.username, avatar_url: p.avatar_url }])
+  )
+
+  // Winner: player who won the highest-round completed match
+  let winnerId: string | null = null
+  let winnerName: string | null = null
+  if (tournament.status === 'completed' && rounds.length > 0) {
+    const sortedRounds = [...rounds].sort((a, b) => b.round_number - a.round_number)
+    for (const r of sortedRounds) {
+      const finalMatch = (r.matches ?? []).find((m) => (m as unknown as { status: string }).status === 'completed' || (m as unknown as { status: string }).status === 'walkover')
+      if (finalMatch) {
+        const fm = finalMatch as unknown as { winner_id?: string | null; player1_id: string | null; player1_name: string | null; player2_id: string | null; player2_name: string | null; player1_score: number | null; player2_score: number | null }
+        winnerId = fm.winner_id ?? null
+        if (!winnerId) {
+          const p1s = fm.player1_score ?? 0
+          const p2s = fm.player2_score ?? 0
+          winnerName = p1s >= p2s ? fm.player1_name : fm.player2_name
+        } else {
+          winnerName = profileMap[winnerId]?.display_name ?? profileMap[winnerId]?.username ?? null
+        }
+        break
+      }
+    }
+  }
+
+  const topScorer = tournament.status === 'completed' ? calcTopScorer(completedMatches as unknown as import('@/lib/utils/card-helpers').MatchRow[], cardProfileMap) : null
+
+  const isWinner = tournament.status === 'completed' && (
+    isOrganizer ||
+    (currentUserId && currentUserId === winnerId) ||
+    (myName && myName === winnerName)
+  )
+  const isTopScorer = tournament.status === 'completed' && (
+    isOrganizer ||
+    (topScorer && currentUserId && topScorer.id === currentUserId) ||
+    (topScorer && myName && topScorer.name === myName)
+  )
 
   return (
     <div className="page-container">
@@ -263,6 +307,17 @@ export function PlayerPortal({
           </div>
         )}
       </div>
+
+      {/* ── Winner / Top Scorer cards — shown only to the winner, top scorer, or organizer */}
+      {tournament.status === 'completed' && (isWinner || isTopScorer) && (
+        <div className="mb-8">
+          <CardDownloadButtons
+            tournamentId={tournamentId}
+            showWinner={!!isWinner}
+            showTopScorer={!!isTopScorer}
+          />
+        </div>
+      )}
 
       {/* ── Your Match card ───────────────────────────────────────────────── */}
       {myMatch && (
