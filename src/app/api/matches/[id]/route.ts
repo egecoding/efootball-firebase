@@ -51,7 +51,7 @@ export async function PATCH(
   const { data: match, error: matchErr } = await admin
     .from('matches')
     .select(
-      'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id'
+      'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id, tie_id'
     )
     .eq('id', params.id)
     .single()
@@ -78,8 +78,12 @@ export async function PATCH(
 
   const format = (tournament?.format as string) ?? 'knockout'
 
-  if (player1_score === player2_score && format === 'knockout') {
-    return NextResponse.json({ error: 'Draws are not allowed in knockout tournaments' }, { status: 400 })
+  const isDrawBlocked =
+    format === 'knockout' ||
+    (format === 'home_away_knockout' && !(match as { tie_id?: string | null }).tie_id) ||
+    format === 'double_elimination'
+  if (player1_score === player2_score && isDrawBlocked) {
+    return NextResponse.json({ error: 'Draws are not allowed in this match' }, { status: 400 })
   }
 
   if (!['scheduled', 'awaiting_confirmation'].includes(match.status)) {

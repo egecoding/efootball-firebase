@@ -74,6 +74,7 @@ export async function POST(
   const isKnockoutPhase =
     tournament.format === 'knockout' ||
     tournament.format === 'double_elimination' ||
+    (tournament.format === 'home_away_knockout' && !match.tie_id) || // single-leg Final only
     (tournament.format === 'group_knockout' && !match.group_name && !match.tie_id) || // single-leg final
     (tournament.format === 'champions_league' && match.bracket !== 'league') // playoff + KO rounds
 
@@ -331,17 +332,19 @@ export async function POST(
           .select('id')
           .eq('tournament_id', match.tournament_id)
           .neq('status', 'completed')
+          .neq('status', 'walkover')
           .limit(1)
         allDone = !remaining || remaining.length === 0
       }
     } else {
-      // round_robin / league: all matches completed
+      // round_robin / league: all matches completed or walkover
       if (!match.next_match_id) {
         const { data: remaining } = await admin
           .from('matches')
           .select('id')
           .eq('tournament_id', match.tournament_id)
           .neq('status', 'completed')
+          .neq('status', 'walkover')
           .limit(1)
         allDone = !remaining || remaining.length === 0
       }
