@@ -169,8 +169,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
 
   const isWinner = !!user && !!winnerId && user.id === winnerId
   const isTopScorer = !!user && !!topScorerId && user.id === topScorerId
-  // Show cards to everyone on completed tournaments — winner may be a guest with no account
-  const showCards = tournament.status === 'completed'
+  // Show cards only to organizer, winner, or top scorer
+  const showCards = tournament.status === 'completed' && (isOrganizer || isWinner || isTopScorer)
 
   return (
     <div className="page-container">
@@ -227,13 +227,13 @@ export default async function TournamentDetailPage({ params }: PageProps) {
           </div>
         </div>
 
-        {/* Card previews — shown to everyone on completed tournaments */}
+        {/* Card previews — organizer, winner, or top scorer only */}
         {showCards && (
           <div className="mt-8">
             <CardDownloadButtons
               tournamentId={params.id}
-              showWinner={true}
-              showTopScorer={true}
+              showWinner={isOrganizer || isWinner}
+              showTopScorer={isOrganizer || isTopScorer}
             />
           </div>
         )}
