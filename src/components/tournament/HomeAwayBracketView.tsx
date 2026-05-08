@@ -138,16 +138,23 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
               {stage.leg1Matches.map((m) => {
                 const nameA = resolveName(m.player1_id, m.player1_name)
                 const nameB = resolveName(m.player2_id, m.player2_name)
+                const canAct = currentUserId && (
+                  m.player1_id === currentUserId || m.player2_id === currentUserId || currentUserId === organizerId
+                )
                 return (
-                  <div key={m.id} className="px-4 py-3 flex items-center gap-3">
+                  <div key={m.id} className="px-4 py-3 flex items-center gap-3 flex-wrap">
                     <span className="font-semibold text-sm text-gray-900 dark:text-white">{nameA}</span>
                     <span className="text-gray-400 text-xs">vs</span>
                     <span className="font-semibold text-sm text-gray-900 dark:text-white">{nameB}</span>
-                    {m.player1_score !== null && m.player2_score !== null && (
+                    {m.player1_score !== null && m.player2_score !== null ? (
                       <span className="ml-auto font-bold text-sm text-gray-700 dark:text-gray-300">
                         {m.player1_score}–{m.player2_score}
                       </span>
-                    )}
+                    ) : canAct && (m.status === 'scheduled' || m.status === 'awaiting_confirmation') ? (
+                      <Link href={`/matches/${m.id}`} className="ml-auto text-xs font-semibold text-brand-500 hover:text-brand-600 dark:text-brand-400">
+                        Submit →
+                      </Link>
+                    ) : null}
                   </div>
                 )
               })}

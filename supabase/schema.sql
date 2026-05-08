@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   description       TEXT,
   game_name         TEXT NOT NULL DEFAULT 'eFootball',
   max_participants  INTEGER NOT NULL DEFAULT 8 CHECK (max_participants IN (4, 8, 16, 32)),
-  format            TEXT NOT NULL DEFAULT 'knockout' CHECK (format IN ('knockout', 'round_robin', 'league')),
+  format            TEXT NOT NULL DEFAULT 'knockout' CHECK (format IN ('knockout', 'round_robin', 'league', 'home_away_knockout')),
   status            public.tournament_status NOT NULL DEFAULT 'open',
   invite_code       TEXT UNIQUE NOT NULL DEFAULT upper(substring(replace(replace(encode(gen_random_bytes(9), 'base64'), '/', ''), '+', ''), 1, 8)),
   is_public         BOOLEAN NOT NULL DEFAULT true,
@@ -108,6 +108,14 @@ DO $$ BEGIN
   ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_format_check;
   ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_format_check
     CHECK (format IN ('knockout', 'round_robin', 'league', 'group_knockout', 'double_elimination', 'champions_league'));
+EXCEPTION WHEN others THEN NULL;
+END $$;
+
+-- Migration: add home_away_knockout format
+DO $$ BEGIN
+  ALTER TABLE public.tournaments DROP CONSTRAINT IF EXISTS tournaments_format_check;
+  ALTER TABLE public.tournaments ADD CONSTRAINT tournaments_format_check
+    CHECK (format IN ('knockout', 'round_robin', 'league', 'group_knockout', 'double_elimination', 'champions_league', 'home_away_knockout'));
 EXCEPTION WHEN others THEN NULL;
 END $$;
 
