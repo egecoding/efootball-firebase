@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
 import { GuestResultForm } from '@/components/match/GuestResultForm'
+import { DisputeButton } from '@/components/match/DisputeButton'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Match, MatchWithPlayers, Profile } from '@/types/database'
@@ -222,8 +223,13 @@ export default async function MatchPage({ params }: PageProps) {
             )}
 
             {typedMatch.status === 'awaiting_confirmation' && isPlayer && (
-              <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 mb-6 text-center">
-                Score submitted — waiting for the organizer to confirm.
+              <div className="flex flex-col gap-3 mb-6">
+                <div className="rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400 text-center">
+                  Score submitted — waiting for the organizer to confirm.
+                </div>
+                <div className="flex justify-center">
+                  <DisputeButton matchId={typedMatch.id} />
+                </div>
               </div>
             )}
 

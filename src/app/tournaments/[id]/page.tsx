@@ -12,6 +12,7 @@ import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons
 import { AnnouncementBanner } from '@/components/tournament/AnnouncementBanner'
 import { RealtimeRefresh } from '@/components/tournament/RealtimeRefresh'
 import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView'
+import { TournamentStats } from '@/components/tournament/TournamentStats'
 import { calcStandings, calcTopScorer, type MatchRow } from '@/lib/utils/card-helpers'
 import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
 
@@ -428,6 +429,29 @@ export default async function TournamentDetailPage({ params }: PageProps) {
             </p>
           </div>
         )
+      )}
+
+      {/* Tournament Stats — only show for completed tournaments */}
+      {tournament.status === 'completed' && (
+        <div className="mb-8">
+          <TournamentStats
+            matches={allMatches.map((m) => ({
+              id: m.id,
+              player1_id: m.player1_id,
+              player1_name: m.player1_name,
+              player2_id: m.player2_id,
+              player2_name: m.player2_name,
+              player1_score: m.player1_score,
+              player2_score: m.player2_score,
+              winner_id: m.winner_id,
+              status: m.status,
+            }))}
+            profileMap={Object.fromEntries(
+              Array.from(cardProfileMap.entries()).map(([k, v]) => [k, { display_name: v.display_name, username: v.username }])
+            )}
+            winnerName={winnerId ? (cardProfileMap.get(winnerId)?.display_name ?? cardProfileMap.get(winnerId)?.username ?? null) : null}
+          />
+        </div>
       )}
 
       {/* Participants */}

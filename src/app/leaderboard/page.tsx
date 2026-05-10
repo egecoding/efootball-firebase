@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -40,12 +41,39 @@ function PlayerAvatar({ name, avatarUrl }: { name: string; avatarUrl: string | n
 
 export default async function LeaderboardPage() {
   const supabase = await createClient()
+  const admin = createAdminClient()
+
   const { data: players } = await supabase
     .from('profiles')
     .select('id, username, display_name, avatar_url, wins, losses')
     .order('wins', { ascending: false })
     .order('losses', { ascending: true })
     .limit(100)
+
+  // Fetch last 5 completed matches per player for form dots
+  const playerIds = (players ?? []).map((p) => p.id)
+  const formMap: Record<string, ('W' | 'L')[]> = {}
+
+  if (playerIds.length > 0) {
+    const { data: recentMatches } = await admin
+      .from('matches')
+      .select('player1_id, player2_id, winner_id, played_at')
+      .in('status', ['completed'])
+      .or(`player1_id.in.(${playerIds.join(',')}),player2_id.in.(${playerIds.join(',')})`)
+      .not('winner_id', 'is', null)
+      .order('played_at', { ascending: false })
+      .limit(playerIds.length * 5)
+
+    for (const m of recentMatches ?? []) {
+      for (const pid of [m.player1_id, m.player2_id]) {
+        if (!pid || !playerIds.includes(pid)) continue
+        if (!formMap[pid]) formMap[pid] = []
+        if (formMap[pid].length < 5) {
+          formMap[pid].push(m.winner_id === pid ? 'W' : 'L')
+        }
+      }
+    }
+  }
 
   return (
     <div className="page-container">
@@ -59,6 +87,7 @@ export default async function LeaderboardPage() {
               <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-16">W</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-16">L</th>
               <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-20">W%</th>
+              <th className="px-4 py-3 text-left font-semibold text-gray-500 dark:text-gray-400 w-28 hidden sm:table-cell">Form</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -92,6 +121,20 @@ export default async function LeaderboardPage() {
                   </td>
                   <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">
                     {winRate}
+                  </td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <div className="flex items-center gap-1">
+                      {(formMap[player.id] ?? []).map((result, i) => (
+                        <span
+                          key={i}
+                          title={result === 'W' ? 'Win' : 'Loss'}
+                          className={`h-2.5 w-2.5 rounded-full shrink-0 ${result === 'W' ? 'bg-green-500' : 'bg-red-400'}`}
+                        />
+                      ))}
+                      {(formMap[player.id] ?? []).length === 0 && (
+                        <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )

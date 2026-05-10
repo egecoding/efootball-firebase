@@ -47,6 +47,11 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
   const [manualErrors, setManualErrors] = useState<Record<string, string>>({})
   const [submittingManualId, setSubmittingManualId] = useState<string | null>(null)
 
+  // Per-match walkover state
+  const [walkoverMatchId, setWalkoverMatchId] = useState<string | null>(null)
+  const [walkoverSubmitting, setWalkoverSubmitting] = useState(false)
+  const [walkoverError, setWalkoverError] = useState('')
+
   const isFull = participants.length >= tournament.max_participants
 
   async function addPlayer() {
@@ -163,6 +168,24 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
     router.refresh()
   }
 
+  async function declareWalkover(matchId: string, winnerSlot: 1 | 2) {
+    setWalkoverSubmitting(true)
+    setWalkoverError('')
+    const res = await fetch(`/api/matches/${matchId}/walkover`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ winner_slot: winnerSlot }),
+    })
+    const data = await res.json()
+    setWalkoverSubmitting(false)
+    if (!res.ok) {
+      setWalkoverError(data.error ?? 'Failed to declare walkover')
+      return
+    }
+    setWalkoverMatchId(null)
+    router.refresh()
+  }
+
   // group_knockout: show "Advance to Knockout" when all group matches done and no knockout matches yet
   const groupMatches = matches.filter((m) => m.group_name != null)
   const hasKnockoutMatches = matches.some((m) => m.group_name == null && m.round_phase === 'knockout')
@@ -263,11 +286,15 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
   const activeMatches = matches.filter((m) => {
     if (m.status === 'completed') return true
     if (m.status === 'awaiting_confirmation') return true
-    // scheduled: show only if at least both player slots are filled (by id or name)
+    if (m.status === 'pending') return false
+    // scheduled/walkover: show only if at least both player slots are filled (by id or name)
     const p1 = m.player1_id ?? m.player1_name
     const p2 = m.player2_id ?? m.player2_name
     return p1 !== null && p2 !== null
   })
+
+  // Pending leg2 matches (home_away_knockout / group_knockout) — show greyed out
+  const pendingLeg2Matches = matches.filter((m) => m.status === 'pending' && m.leg === 2)
 
   return (
     <div className="flex flex-col gap-6">
@@ -453,6 +480,11 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {m.disputed && (
+                        <span title={m.dispute_reason ?? 'Disputed'} className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:text-orange-400">
+                          ⚠️ Disputed
+                        </span>
+                      )}
                       <MatchStatusBadge status={m.status as 'pending' | 'scheduled' | 'awaiting_confirmation' | 'completed' | 'walkover'} />
                       <Link
                         href={`/matches/${m.id}`}
@@ -463,6 +495,13 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       </Link>
                     </div>
                   </div>
+
+                  {/* Dispute reason banner */}
+                  {m.disputed && m.dispute_reason && (
+                    <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 text-xs text-orange-700 dark:text-orange-400">
+                      <span className="font-semibold">Dispute reason: </span>{m.dispute_reason}
+                    </div>
+                  )}
 
                   {/* Finalized screenshot */}
                   {m.screenshotSignedUrl && (
@@ -542,19 +581,60 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
 
                   {/* Manual result entry — for scheduled matches where no score was submitted */}
                   {m.status === 'scheduled' && hasPlayers && (
-                    <div>
-                      {!isEntering ? (
-                        <button
-                          onClick={() => {
-                            setEnteringId(m.id)
-                            setManualScores((prev) => ({ ...prev, [m.id]: prev[m.id] ?? { p1: '', p2: '' } }))
-                          }}
-                          className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors"
-                        >
-                          <ClipboardEdit className="h-3.5 w-3.5" />
-                          Enter result manually
-                        </button>
-                      ) : (
+                    <div className="flex flex-col gap-2">
+                      {!isEntering && walkoverMatchId !== m.id && (
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <button
+                            onClick={() => {
+                              setEnteringId(m.id)
+                              setManualScores((prev) => ({ ...prev, [m.id]: prev[m.id] ?? { p1: '', p2: '' } }))
+                            }}
+                            className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors"
+                          >
+                            <ClipboardEdit className="h-3.5 w-3.5" />
+                            Enter result manually
+                          </button>
+                          <button
+                            onClick={() => { setWalkoverMatchId(m.id); setWalkoverError(''); setEnteringId(null) }}
+                            className="inline-flex items-center gap-1.5 text-xs text-orange-500 hover:text-orange-600 dark:text-orange-400 dark:hover:text-orange-300 transition-colors"
+                          >
+                            Walkover
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Walkover picker */}
+                      {walkoverMatchId === m.id && !isEntering && (
+                        <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 p-3 flex flex-col gap-2">
+                          <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">Who showed up?</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => declareWalkover(m.id, 1)}
+                              disabled={walkoverSubmitting}
+                              className="flex-1 rounded-lg border border-orange-300 dark:border-orange-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-800 dark:text-gray-200 hover:bg-orange-100 dark:hover:bg-orange-900/40 disabled:opacity-60 transition-colors truncate"
+                            >
+                              {m.player1_name ?? 'Player 1'}
+                            </button>
+                            <button
+                              onClick={() => declareWalkover(m.id, 2)}
+                              disabled={walkoverSubmitting}
+                              className="flex-1 rounded-lg border border-orange-300 dark:border-orange-700 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-medium text-gray-800 dark:text-gray-200 hover:bg-orange-100 dark:hover:bg-orange-900/40 disabled:opacity-60 transition-colors truncate"
+                            >
+                              {m.player2_name ?? 'Player 2'}
+                            </button>
+                          </div>
+                          {walkoverError && <p className="text-xs text-red-600 dark:text-red-400">{walkoverError}</p>}
+                          <button
+                            onClick={() => setWalkoverMatchId(null)}
+                            className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Manual score entry form */}
+                      {isEntering && (
                         <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-3 flex flex-col gap-3">
                           <p className="text-xs font-semibold text-gray-600 dark:text-gray-300">Enter Result</p>
                           <div className="grid grid-cols-2 gap-2">
@@ -607,6 +687,33 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       )}
                     </div>
                   )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pending Leg 2 matches — greyed out, awaiting Leg 1 confirmation */}
+      {tournament.status !== 'open' && pendingLeg2Matches.length > 0 && (
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-5 flex flex-col gap-3 opacity-60">
+          <h2 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
+            <span>2nd Leg Matches</span>
+            <span className="text-xs font-normal text-gray-400 dark:text-gray-500">— awaiting Leg 1 confirmation</span>
+          </h2>
+          <div className="flex flex-col gap-2">
+            {pendingLeg2Matches.map((m) => {
+              const p1 = m.player1_name ?? 'TBD'
+              const p2 = m.player2_name ?? 'TBD'
+              return (
+                <div key={m.id} className="rounded-lg border border-gray-100 dark:border-gray-800 p-3 flex items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    {m.round_name && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mb-0.5">{m.round_name} · 2nd Leg</p>
+                    )}
+                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">{p1} vs {p2}</p>
+                  </div>
+                  <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500 italic">Pending</span>
                 </div>
               )
             })}

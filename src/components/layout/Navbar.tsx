@@ -20,9 +20,25 @@ export function Navbar({ user, profile }: NavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifs, setNotifs] = useState<{ id: string; type: string; title: string; body: string; url: string; created_at: string }[]>([])
+  const [notifReadAt, setNotifReadAt] = useState<number>(0)
   const router = useRouter()
   const pathname = usePathname()
 
+  // Load read timestamp from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('notifs_read_at')
+    if (stored) setNotifReadAt(parseInt(stored, 10))
+  }, [])
+
+  // Pre-fetch notifications on mount to drive the red dot
+  useEffect(() => {
+    if (!user) return
+    fetch('/api/me/notifications')
+      .then((r) => r.json())
+      .then((d) => { if (Array.isArray(d)) setNotifs(d) })
+  }, [user])
+
+  // Re-fetch when panel opens
   useEffect(() => {
     if (!notifOpen || !user) return
     fetch('/api/me/notifications')
@@ -97,12 +113,20 @@ export function Navbar({ user, profile }: NavbarProps) {
             {user && (
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
-                  onClick={() => setNotifOpen((o) => !o)}
+                  onClick={() => {
+                    const opening = !notifOpen
+                    setNotifOpen(opening)
+                    if (opening) {
+                      const now = Date.now()
+                      localStorage.setItem('notifs_read_at', String(now))
+                      setNotifReadAt(now)
+                    }
+                  }}
                   className="rounded-lg p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors relative"
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" />
-                  {notifs.length > 0 && (
+                  {notifs.length > 0 && notifs.some((n) => new Date(n.created_at).getTime() > notifReadAt) && (
                     <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-red-500" />
                   )}
                 </button>
@@ -118,20 +142,40 @@ export function Navbar({ user, profile }: NavbarProps) {
                       {notifs.length === 0 ? (
                         <p className="px-4 py-6 text-sm text-gray-400 text-center">No notifications yet</p>
                       ) : (
-                        notifs.map((n) => (
-                          <a
-                            key={n.id}
-                            href={n.url}
-                            onClick={() => setNotifOpen(false)}
-                            className="flex flex-col gap-0.5 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors"
-                          >
-                            <span className="text-xs font-semibold text-gray-900 dark:text-white">{n.title}</span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{n.body}</span>
-                            <span className="text-[10px] text-gray-400 mt-0.5">{new Date(n.created_at).toLocaleDateString()}</span>
-                          </a>
-                        ))
+                        notifs.map((n) => {
+                          const isUnread = new Date(n.created_at).getTime() > notifReadAt
+                          return (
+                            <a
+                              key={n.id}
+                              href={n.url}
+                              onClick={() => setNotifOpen(false)}
+                              className={`flex flex-col gap-0.5 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-colors ${isUnread ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {isUnread && <span className="h-1.5 w-1.5 rounded-full bg-brand-500 shrink-0" />}
+                                <span className="text-xs font-semibold text-gray-900 dark:text-white">{n.title}</span>
+                              </div>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{n.body}</span>
+                              <span className="text-[10px] text-gray-400 mt-0.5">{new Date(n.created_at).toLocaleDateString()}</span>
+                            </a>
+                          )
+                        })
                       )}
                     </div>
+                    {notifs.length > 0 && (
+                      <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-800">
+                        <button
+                          onClick={() => {
+                            const now = Date.now()
+                            localStorage.setItem('notifs_read_at', String(now))
+                            setNotifReadAt(now)
+                          }}
+                          className="text-xs text-gray-400 hover:text-brand-500 dark:hover:text-brand-400 transition-colors"
+                        >
+                          Mark all read
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

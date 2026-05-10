@@ -36,7 +36,7 @@ export async function PATCH(
 
   const admin = createAdminClient()
   const [{ data: tournament }, superAdmin] = await Promise.all([
-    admin.from('tournaments').select('organizer_id').eq('id', params.id).single(),
+    admin.from('tournaments').select('organizer_id, status').eq('id', params.id).single(),
     checkSuperAdmin(user.id),
   ])
 
@@ -45,6 +45,11 @@ export async function PATCH(
   }
 
   const body = await request.json()
+
+  if ('status' in body && tournament.status !== 'open') {
+    return NextResponse.json({ error: 'Cannot change status after tournament has started' }, { status: 409 })
+  }
+
   const allowed = ['title', 'description', 'status', 'starts_at', 'is_public', 'game_name']
   const updates: Record<string, unknown> = {}
   for (const key of allowed) {

@@ -533,7 +533,10 @@ async function startHomeAwayKnockout(
       if (match.leg === 1 && match.next_match_id) {
         const { data: leg2 } = await supabase.from('matches').select('id, next_match_id, next_match_slot').eq('id', match.next_match_id).single()
         if (leg2) {
-          await supabase.from('matches').update({ winner_id, status: 'walkover', player1_id: winner_id, player1_name: winner_name }).eq('id', leg2.id)
+          // Leg2 has players swapped: leg1.player1 → leg2.player2, leg1.player2 → leg2.player1
+          // So the winner's slot in leg2 is the OPPOSITE of their slot in leg1
+          const leg2WinnerSlot = hasP1 ? 'player2' : 'player1'
+          await supabase.from('matches').update({ winner_id, status: 'walkover', [`${leg2WinnerSlot}_id`]: winner_id, [`${leg2WinnerSlot}_name`]: winner_name }).eq('id', leg2.id)
           if (leg2.next_match_id && leg2.next_match_slot) {
             const idField = leg2.next_match_slot === 1 ? 'player1_id' : 'player2_id'
             const nameField = leg2.next_match_slot === 1 ? 'player1_name' : 'player2_name'
