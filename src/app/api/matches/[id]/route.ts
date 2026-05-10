@@ -51,7 +51,7 @@ export async function PATCH(
   const { data: match, error: matchErr } = await admin
     .from('matches')
     .select(
-      'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id, tie_id'
+      'id, player1_id, player1_name, player2_id, player2_name, status, next_match_id, next_match_slot, tournament_id, tie_id, leg'
     )
     .eq('id', params.id)
     .single()
@@ -77,6 +77,17 @@ export async function PATCH(
   }
 
   const format = (tournament?.format as string) ?? 'knockout'
+
+  // Activate leg 2 when leg 1 is submitted (don't wait for organizer confirmation)
+  async function activateLeg2IfNeeded() {
+    const m = match as { tie_id?: string | null; leg?: number | null }
+    if ((format === 'home_away_knockout' || format === 'group_knockout') && m.tie_id && m.leg === 1) {
+      const { data: leg2 } = await admin.from('matches').select('id, status').eq('tie_id', m.tie_id).eq('leg', 2).single()
+      if (leg2 && leg2.status === 'pending') {
+        await admin.from('matches').update({ status: 'scheduled' }).eq('id', leg2.id)
+      }
+    }
+  }
 
   const isDrawBlocked =
     format === 'knockout' ||
@@ -133,6 +144,8 @@ export async function PATCH(
     if (updateErr) {
       return NextResponse.json({ error: updateErr.message }, { status: 500 })
     }
+
+    await activateLeg2IfNeeded()
 
     // Notify organizer a result is waiting
     sendPush([tournament?.organizer_id], {
@@ -193,6 +206,7 @@ export async function PATCH(
       .from('matches')
       .update({ status: 'awaiting_confirmation' })
       .eq('id', params.id)
+    await activateLeg2IfNeeded()
     sendPush([tournament?.organizer_id], {
       title: '⚽ Result submitted',
       body: `A player submitted a match result — ready for your confirmation.`,
