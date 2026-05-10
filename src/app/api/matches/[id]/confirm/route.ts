@@ -153,9 +153,15 @@ export async function POST(
   // ── Two-legged tie logic (group_knockout knockout phase) ─────────────────
   // Leg 1 completed → unlock leg 2 (schedule it)
   // Leg 2 completed → aggregate both legs and advance winner
-  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 1 && match.next_match_id) {
-    // Leg 1 done — schedule leg 2
-    await admin.from('matches').update({ status: 'scheduled' }).eq('id', match.next_match_id)
+  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 1) {
+    // Leg 1 done — find and schedule leg 2 via tie_id (robust: doesn't rely on next_match_id being set)
+    const { data: leg2Match } = await admin.from('matches').select('id').eq('tie_id', match.tie_id).eq('leg', 2).single()
+    if (leg2Match) {
+      await admin.from('matches').update({ status: 'scheduled' }).eq('id', leg2Match.id)
+    } else if (match.next_match_id) {
+      // fallback to next_match_id if tie_id lookup fails
+      await admin.from('matches').update({ status: 'scheduled' }).eq('id', match.next_match_id)
+    }
     return NextResponse.json({ status: 'completed', winner_id })
   }
 

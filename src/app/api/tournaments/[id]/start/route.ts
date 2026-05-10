@@ -59,7 +59,7 @@ export async function POST(
   } else if (format === 'home_away_knockout') {
     if (participants.length < 2)
       return NextResponse.json({ error: 'Need at least 2 participants' }, { status: 409 })
-    return startHomeAwayKnockout(supabase, params.id, bracketParticipants)
+    return startHomeAwayKnockout(admin, params.id, bracketParticipants)
   } else {
     return startRoundRobin(supabase, params.id, bracketParticipants, format)
   }
