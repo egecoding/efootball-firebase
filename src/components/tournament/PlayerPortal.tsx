@@ -18,6 +18,8 @@ import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView
 import { StandingsTable } from '@/components/tournament/StandingsTable'
 import { ParticipantList } from '@/components/tournament/ParticipantList'
 import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons'
+import { TopScorersTable } from '@/components/tournament/TopScorersTable'
+import { PredictionBar } from '@/components/match/PredictionBar'
 import { calcTopScorer } from '@/lib/utils/card-helpers'
 import type {
   TournamentWithOrganizer,
@@ -344,6 +346,18 @@ export function PlayerPortal({
             <span className="text-brand-600 dark:text-brand-400">{opponentName}</span>
           </p>
 
+          {/* Predictions bar */}
+          <PredictionBar
+            matchId={myMatch.id}
+            player1Name={myMatch.player1_name ?? profileMap[myMatch.player1_id ?? '']?.display_name ?? profileMap[myMatch.player1_id ?? '']?.username ?? 'Player 1'}
+            player2Name={myMatch.player2_name ?? profileMap[myMatch.player2_id ?? '']?.display_name ?? profileMap[myMatch.player2_id ?? '']?.username ?? 'Player 2'}
+            matchStatus={myMatch.status}
+            matchWinnerId={null}
+            player1Id={myMatch.player1_id}
+            player2Id={myMatch.player2_id}
+            currentUserId={currentUserId}
+          />
+
           {myMatch.status === 'awaiting_confirmation' ? (
             <div className="rounded-lg border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 px-4 py-3 text-sm text-yellow-700 dark:text-yellow-400">
               Score submitted. The organizer will verify and confirm the result.
@@ -542,6 +556,22 @@ export function PlayerPortal({
               />
             </>
           )}
+        </div>
+      )}
+
+      {/* Top Scorers */}
+      {tournament.status !== 'open' && rounds.length > 0 && (
+        <div className="mb-8">
+          <TopScorersTable
+            matches={rounds.flatMap((r) => (r.matches ?? []) as unknown as Array<{
+              id: string; player1_id: string | null; player1_name: string | null
+              player2_id: string | null; player2_name: string | null
+              player1_score: number | null; player2_score: number | null; status: string
+            }>)}
+            profileMap={Object.fromEntries(
+              Object.entries(profileMap).map(([k, v]) => [k, { display_name: v.display_name, username: v.username, avatar_url: v.avatar_url }])
+            )}
+          />
         </div>
       )}
 
