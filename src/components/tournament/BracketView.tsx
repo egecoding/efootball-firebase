@@ -1,5 +1,6 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { Crown } from 'lucide-react'
 import type { RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
@@ -25,8 +26,21 @@ export function BracketView({ rounds, currentUserId, organizerId, profileMap = {
   // All columns have the same total height = SLOT * 2^(totalRounds-1)
   const bracketH = SLOT * Math.pow(2, totalRounds - 1)
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [atEnd, setAtEnd] = useState(false)
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+  }
+
   return (
-    <div className="overflow-x-auto pb-4 -mx-1 px-1">
+    <div className="relative">
+    {/* Right-edge scroll hint fade — sits over the scroll container */}
+    {!atEnd && (
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-gray-950 z-10" />
+    )}
+    <div ref={scrollRef} onScroll={handleScroll} className="overflow-x-auto pb-4 -mx-1 px-1">
       {/* Round labels row */}
       <div className="flex mb-2" style={{ minWidth: 'max-content' }}>
         {sorted.map((round, idx) => {
@@ -123,6 +137,7 @@ export function BracketView({ rounds, currentUserId, organizerId, profileMap = {
           )
         })}
       </div>
+    </div>
     </div>
   )
 }

@@ -1,3 +1,6 @@
+'use client'
+
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import type { RoundWithMatches, MatchWithPlayers } from '@/types/database'
 
@@ -60,8 +63,21 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     return fallback ?? 'TBD'
   }
 
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [atEnd, setAtEnd] = useState(false)
+  function handleScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
+  }
+
   return (
-    <div className="overflow-x-auto pb-4 -mx-1 px-1">
+    <div className="relative">
+    {/* Right-edge scroll hint fade */}
+    {!atEnd && (
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-gray-950 z-10" />
+    )}
+    <div ref={scrollRef} onScroll={handleScroll} className="overflow-x-auto pb-4 -mx-1 px-1">
       {/* ── Round labels row ── */}
       <div className="flex mb-2" style={{ minWidth: 'max-content' }}>
         {stages.map((stage, idx) => (
@@ -191,6 +207,7 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
           )
         })}
       </div>
+    </div>
     </div>
   )
 }

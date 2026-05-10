@@ -111,24 +111,24 @@ export function PredictionBar({
           <div className="flex items-center gap-1 mb-1.5">
             {/* Player 1 correct/wrong indicator */}
             {isCompleted && data.user_slot === 1 && (
-              <span className="text-xs mr-1">{winnerSlot === 1 ? '✅' : '❌'}</span>
+              <span className="text-xs shrink-0">{winnerSlot === 1 ? '✅' : '❌'}</span>
             )}
-            <span className={`text-xs font-medium truncate max-w-[30%] ${data.user_slot === 1 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <span className={`text-xs font-medium truncate min-w-0 ${data.user_slot === 1 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-gray-400'}`}>
               {player1Name}
             </span>
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 ml-1">{p1Pct}%</span>
-            <div className="flex-1 mx-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 shrink-0 ml-1">{p1Pct}%</span>
+            <div className="flex-1 mx-1 sm:mx-2 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden min-w-[48px]">
               <div
                 className="h-full rounded-full bg-brand-500 transition-all duration-500"
                 style={{ width: `${p1Pct}%` }}
               />
             </div>
-            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 mr-1">{p2Pct}%</span>
-            <span className={`text-xs font-medium truncate max-w-[30%] text-right ${data.user_slot === 2 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-gray-400'}`}>
+            <span className="text-xs font-bold text-gray-700 dark:text-gray-300 shrink-0 mr-1">{p2Pct}%</span>
+            <span className={`text-xs font-medium truncate min-w-0 text-right ${data.user_slot === 2 ? 'text-brand-600 dark:text-brand-400' : 'text-gray-600 dark:text-gray-400'}`}>
               {player2Name}
             </span>
             {isCompleted && data.user_slot === 2 && (
-              <span className="text-xs ml-1">{winnerSlot === 2 ? '✅' : '❌'}</span>
+              <span className="text-xs shrink-0 ml-1">{winnerSlot === 2 ? '✅' : '❌'}</span>
             )}
           </div>
           <p className="text-[10px] text-center text-gray-400 dark:text-gray-500">

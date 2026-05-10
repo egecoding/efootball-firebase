@@ -122,7 +122,7 @@ export function Navbar({ user, profile }: NavbarProps) {
                       setNotifReadAt(now)
                     }
                   }}
-                  className="rounded-lg p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors relative"
+                  className="rounded-lg p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors relative"
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" />
@@ -131,7 +131,7 @@ export function Navbar({ user, profile }: NavbarProps) {
                   )}
                 </button>
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl z-50 overflow-hidden">
+                  <div className="absolute right-0 top-full mt-2 w-[calc(100vw-1rem)] sm:w-80 max-w-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xl z-50 overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 font-semibold text-sm text-gray-900 dark:text-white flex items-center justify-between">
                       Notifications
                       <button onClick={() => setNotifOpen(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -183,7 +183,7 @@ export function Navbar({ user, profile }: NavbarProps) {
             {/* Theme toggle */}
             <button
               onClick={toggle}
-              className="rounded-lg p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors"
+              className="rounded-lg p-2.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/10 transition-colors"
               aria-label="Toggle theme"
             >
               {theme === 'dark' ? (

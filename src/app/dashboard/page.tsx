@@ -80,29 +80,29 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
-        <div className="rounded-xl border border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-900 px-4 py-4 text-center">
-          <p className="text-3xl font-extrabold text-brand-500 tabular-nums">{wins}</p>
-          <p className="text-xs font-medium text-green-600 dark:text-green-400 mt-1 uppercase tracking-wider">Wins</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-8">
+        <div className="rounded-xl border border-green-200 dark:border-green-900/50 bg-gradient-to-br from-green-50 to-white dark:from-green-900/20 dark:to-gray-900 px-2 py-3 sm:px-4 sm:py-4 text-center">
+          <p className="text-2xl sm:text-3xl font-extrabold text-brand-500 tabular-nums">{wins}</p>
+          <p className="text-[10px] sm:text-xs font-medium text-green-600 dark:text-green-400 mt-1 uppercase tracking-wider">Wins</p>
         </div>
-        <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-white dark:from-red-900/20 dark:to-gray-900 px-4 py-4 text-center">
-          <p className="text-3xl font-extrabold text-red-500 tabular-nums">{losses}</p>
-          <p className="text-xs font-medium text-red-500 dark:text-red-400 mt-1 uppercase tracking-wider">Losses</p>
+        <div className="rounded-xl border border-red-200 dark:border-red-900/50 bg-gradient-to-br from-red-50 to-white dark:from-red-900/20 dark:to-gray-900 px-2 py-3 sm:px-4 sm:py-4 text-center">
+          <p className="text-2xl sm:text-3xl font-extrabold text-red-500 tabular-nums">{losses}</p>
+          <p className="text-[10px] sm:text-xs font-medium text-red-500 dark:text-red-400 mt-1 uppercase tracking-wider">Losses</p>
         </div>
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900 px-4 py-4 text-center">
+        <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-gradient-to-br from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-900 px-2 py-3 sm:px-4 sm:py-4 text-center">
           {winRate !== null ? (
             <>
-              <p className="text-3xl font-extrabold text-gray-900 dark:text-white tabular-nums flex items-center justify-center gap-1">
+              <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tabular-nums flex items-center justify-center gap-1">
                 {winRate}%
               </p>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider flex items-center justify-center gap-1">
-                <TrendingUp className="h-3 w-3 text-brand-500" /> Win rate
+              <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider flex items-center justify-center gap-1">
+                <TrendingUp className="h-3 w-3 text-brand-500 hidden sm:inline" /> Win rate
               </p>
             </>
           ) : (
             <>
-              <p className="text-3xl font-extrabold text-gray-300 dark:text-gray-600">—</p>
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">Win rate</p>
+              <p className="text-2xl sm:text-3xl font-extrabold text-gray-300 dark:text-gray-600">—</p>
+              <p className="text-[10px] sm:text-xs font-medium text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider">Win rate</p>
             </>
           )}
         </div>

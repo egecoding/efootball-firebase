@@ -190,7 +190,7 @@ export default async function MatchPage({ params }: PageProps) {
           )}
 
           <div className="px-6 py-6">
-            <div className="flex items-center justify-center gap-6 mb-8">
+            <div className="flex items-center justify-center gap-3 sm:gap-6 mb-8">
               <PlayerDisplay
                 profile={p1}
                 name={p1DisplayName}
@@ -314,7 +314,7 @@ function PlayerDisplay({
       }`}
     >
       <Avatar src={profile?.avatar_url} name={name} size="lg" />
-      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 text-center max-w-[100px] truncate">
+      <p className="text-sm font-medium text-gray-800 dark:text-gray-200 text-center max-w-[80px] sm:max-w-[100px] truncate">
         {name}
       </p>
       {score !== null && (

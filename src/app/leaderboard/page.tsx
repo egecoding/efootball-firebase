@@ -79,15 +79,16 @@ export default async function LeaderboardPage() {
     <div className="page-container">
       <h1 className="section-title mb-8">🏆 Leaderboard</h1>
       <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[340px]">
           <thead>
             <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
-              <th className="px-4 py-3 text-left font-semibold text-gray-500 dark:text-gray-400 w-12">#</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-500 dark:text-gray-400">Player</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-16">W</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-16">L</th>
-              <th className="px-4 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-20">W%</th>
-              <th className="px-4 py-3 text-left font-semibold text-gray-500 dark:text-gray-400 w-28 hidden sm:table-cell">Form</th>
+              <th className="px-3 py-3 text-left font-semibold text-gray-500 dark:text-gray-400 w-10">#</th>
+              <th className="px-3 py-3 text-left font-semibold text-gray-500 dark:text-gray-400">Player</th>
+              <th className="px-3 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-12">W</th>
+              <th className="px-3 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-12">L</th>
+              <th className="px-3 py-3 text-center font-semibold text-gray-500 dark:text-gray-400 w-16 hidden xs:table-cell sm:table-cell">W%</th>
+              <th className="px-3 py-3 text-left font-semibold text-gray-500 dark:text-gray-400 w-28 hidden sm:table-cell">Form</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -100,29 +101,29 @@ export default async function LeaderboardPage() {
 
               return (
                 <tr key={player.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-3 text-center">
                     {medal ? (
                       <span className="text-base">{medal}</span>
                     ) : (
                       <span className="text-gray-400 font-mono text-xs">{rank}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
                     <Link href={`/profile/${player.id}`} className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
                       <PlayerAvatar name={displayName} avatarUrl={player.avatar_url} />
                       <span className="font-medium text-gray-900 dark:text-white truncate">{displayName}</span>
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-center font-semibold text-green-600 dark:text-green-400">
+                  <td className="px-3 py-3 text-center font-semibold text-green-600 dark:text-green-400">
                     {player.wins ?? 0}
                   </td>
-                  <td className="px-4 py-3 text-center font-semibold text-red-500 dark:text-red-400">
+                  <td className="px-3 py-3 text-center font-semibold text-red-500 dark:text-red-400">
                     {player.losses ?? 0}
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-600 dark:text-gray-400">
+                  <td className="px-3 py-3 text-center text-gray-600 dark:text-gray-400 hidden xs:table-cell sm:table-cell">
                     {winRate}
                   </td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
+                  <td className="px-3 py-3 hidden sm:table-cell">
                     <div className="flex items-center gap-1">
                       {(formMap[player.id] ?? []).map((result, i) => (
                         <span
@@ -141,6 +142,7 @@ export default async function LeaderboardPage() {
             })}
           </tbody>
         </table>
+        </div>
         {(!players || players.length === 0) && (
           <p className="px-4 py-10 text-center text-gray-400 dark:text-gray-500 text-sm">No players yet.</p>
         )}
