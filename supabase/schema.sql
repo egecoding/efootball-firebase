@@ -608,3 +608,18 @@ CREATE POLICY "screenshots_insert_own"
     bucket_id = 'screenshots'
     AND auth.uid()::text = (storage.foldername(name))[1]
   );
+
+
+-- ============================================================
+-- Match Predictions
+-- ============================================================
+CREATE TABLE IF NOT EXISTS public.match_predictions (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id            UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+  user_id             UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  predicted_slot      INT NOT NULL CHECK (predicted_slot IN (1, 2)),
+  predicted_winner_id UUID,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(match_id, user_id)
+);
+GRANT ALL ON public.match_predictions TO service_role;

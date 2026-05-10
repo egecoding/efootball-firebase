@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
 import { GuestResultForm } from '@/components/match/GuestResultForm'
 import { DisputeButton } from '@/components/match/DisputeButton'
+import { PredictionBar } from '@/components/match/PredictionBar'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import type { Match, MatchWithPlayers, Profile } from '@/types/database'
@@ -206,6 +207,20 @@ export default async function MatchPage({ params }: PageProps) {
                 isCompleted={typedMatch.status === 'completed'}
               />
             </div>
+
+            {/* Match predictions */}
+            {['scheduled', 'awaiting_confirmation', 'completed', 'walkover'].includes(typedMatch.status) && (
+              <PredictionBar
+                matchId={typedMatch.id}
+                player1Name={p1DisplayName}
+                player2Name={p2DisplayName}
+                matchStatus={typedMatch.status}
+                matchWinnerId={typedMatch.winner_id ?? null}
+                player1Id={typedMatch.player1_id}
+                player2Id={typedMatch.player2_id}
+                currentUserId={user?.id ?? null}
+              />
+            )}
 
             {screenshotSignedUrl && (
               <div className="mb-6">

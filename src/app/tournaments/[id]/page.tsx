@@ -13,6 +13,7 @@ import { AnnouncementBanner } from '@/components/tournament/AnnouncementBanner'
 import { RealtimeRefresh } from '@/components/tournament/RealtimeRefresh'
 import { HomeAwayBracketView } from '@/components/tournament/HomeAwayBracketView'
 import { TournamentStats } from '@/components/tournament/TournamentStats'
+import { TopScorersTable } from '@/components/tournament/TopScorersTable'
 import { calcStandings, calcTopScorer, type MatchRow } from '@/lib/utils/card-helpers'
 import type { TournamentWithOrganizer, ParticipantWithProfile, RoundWithMatches, MatchWithPlayers, Profile } from '@/types/database'
 
@@ -429,6 +430,27 @@ export default async function TournamentDetailPage({ params }: PageProps) {
             </p>
           </div>
         )
+      )}
+
+      {/* Top Scorers — show once tournament is in progress or completed */}
+      {tournament.status !== 'open' && allMatches.length > 0 && (
+        <div className="mb-8">
+          <TopScorersTable
+            matches={allMatches.map((m) => ({
+              id: m.id,
+              player1_id: m.player1_id,
+              player1_name: m.player1_name,
+              player2_id: m.player2_id,
+              player2_name: m.player2_name,
+              player1_score: m.player1_score,
+              player2_score: m.player2_score,
+              status: m.status,
+            }))}
+            profileMap={Object.fromEntries(
+              Array.from(cardProfileMap.entries()).map(([k, v]) => [k, { display_name: v.display_name, username: v.username, avatar_url: v.avatar_url }])
+            )}
+          />
+        </div>
       )}
 
       {/* Tournament Stats — only show for completed tournaments */}
