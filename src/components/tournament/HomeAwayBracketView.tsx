@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { RoundWithMatches, MatchWithPlayers } from '@/types/database'
 
 const TIE_SLOT = 124   // px
@@ -73,7 +72,6 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     return fallback ?? 'TBD'
   }
 
-  /** Compute all the derived values for a single tie */
   function tieData(leg1: TieMatch, stageIdx: number, stage: Stage): TieData {
     const hasLegs = !!stage.leg2Matches
     const isFinal = stageIdx === totalStages - 1
@@ -111,17 +109,6 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     }
   }
 
-  // Mobile: default to first stage with an incomplete match
-  const defaultMobileStage = Math.max(
-    0,
-    stages.findIndex((s) =>
-      s.leg1Matches.some((m) => m.status === 'scheduled' || m.status === 'awaiting_confirmation') ||
-      (s.leg2Matches ?? []).some((m) => m.status === 'scheduled' || m.status === 'awaiting_confirmation')
-    )
-  )
-  const [mobileStage, setMobileStage] = useState(defaultMobileStage)
-
-  // Desktop scroll hint
   const scrollRef = useRef<HTMLDivElement>(null)
   const [atEnd, setAtEnd] = useState(false)
   function handleScroll() {
@@ -130,149 +117,78 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     setAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 4)
   }
 
-  const currentStage   = stages[mobileStage]
-  const isMobileFinal  = mobileStage === totalStages - 1
-
   return (
-    <>
-      {/* ── MOBILE: stage-by-stage navigator (hidden sm+) ── */}
-      <div className="sm:hidden space-y-3">
-        {/* Stage nav */}
-        <div className="flex items-center justify-between gap-2">
-          <button
-            onClick={() => setMobileStage((s) => Math.max(0, s - 1))}
-            disabled={mobileStage === 0}
-            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Previous stage"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-
-          <div className="flex-1 text-center">
-            <span className={`text-sm font-bold uppercase tracking-wider ${
-              isMobileFinal ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-700 dark:text-gray-300'
-            }`}>
-              {isMobileFinal ? '🏆 ' : ''}{currentStage?.name}
-            </span>
-            {currentStage?.leg2Matches && (
-              <p className="text-[10px] text-gray-400 mt-0.5">2 legs · aggregate decides</p>
-            )}
-          </div>
-
-          <button
-            onClick={() => setMobileStage((s) => Math.min(totalStages - 1, s + 1))}
-            disabled={mobileStage === totalStages - 1}
-            className="p-2 rounded-lg border border-gray-200 dark:border-gray-700 disabled:opacity-30 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            aria-label="Next stage"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Stage indicator dots */}
-        <div className="flex justify-center gap-1.5">
-          {stages.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setMobileStage(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === mobileStage ? 'w-4 bg-brand-500' : 'w-1.5 bg-gray-300 dark:bg-gray-600'
-              }`}
-              aria-label={`Stage ${i + 1}`}
-            />
+    <div className="relative">
+      {!atEnd && (
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-gray-950 z-10" />
+      )}
+      <div ref={scrollRef} onScroll={handleScroll} className="overflow-x-auto pb-4 -mx-1 px-1">
+        {/* Round labels */}
+        <div className="flex mb-2" style={{ minWidth: 'max-content' }}>
+          {stages.map((stage, idx) => (
+            <div key={stage.name} className="flex items-center">
+              <div
+                style={{ width: CARD_W }}
+                className={`text-center text-xs font-bold uppercase tracking-widest py-1 ${
+                  idx === totalStages - 1 ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'
+                }`}
+              >
+                {idx === totalStages - 1 ? '🏆 ' : ''}{stage.name}
+              </div>
+              {idx < totalStages - 1 && <div style={{ width: CONN_W }} />}
+            </div>
           ))}
         </div>
 
-        {/* Tie cards for selected stage */}
-        <div className="flex flex-col gap-3">
-          {currentStage?.leg1Matches.map((leg1) => {
-            const d = tieData(leg1, mobileStage, currentStage)
+        {/* Bracket body */}
+        <div className="flex" style={{ height: bracketH, minWidth: 'max-content', alignItems: 'flex-start' }}>
+          {stages.map((stage, stageIdx) => {
+            const ties  = stage.leg1Matches
+            const slotH = TIE_SLOT * Math.pow(2, stageIdx)
+
             return (
-              <TieCard key={leg1.id} {...d} />
-            )
-          })}
-          {(!currentStage?.leg1Matches.length) && (
-            <p className="text-sm text-center text-gray-400 dark:text-gray-500 py-6">
-              No ties in this stage yet.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ── DESKTOP: full horizontal bracket (hidden on mobile) ── */}
-      <div className="hidden sm:block relative">
-        {!atEnd && (
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white dark:from-gray-950 z-10" />
-        )}
-        <div ref={scrollRef} onScroll={handleScroll} className="overflow-x-auto pb-4 -mx-1 px-1">
-          {/* Round labels */}
-          <div className="flex mb-2" style={{ minWidth: 'max-content' }}>
-            {stages.map((stage, idx) => (
-              <div key={stage.name} className="flex items-center">
-                <div
-                  style={{ width: CARD_W }}
-                  className={`text-center text-xs font-bold uppercase tracking-widest py-1 ${
-                    idx === totalStages - 1 ? 'text-yellow-500 dark:text-yellow-400' : 'text-gray-400 dark:text-gray-500'
-                  }`}
-                >
-                  {idx === totalStages - 1 ? '🏆 ' : ''}{stage.name}
+              <div key={stage.name} className="flex items-start shrink-0">
+                <div style={{ width: CARD_W, height: bracketH }} className="flex flex-col">
+                  {ties.map((leg1) => {
+                    const d = tieData(leg1, stageIdx, stage)
+                    return (
+                      <div key={leg1.id} style={{ height: slotH, minHeight: slotH }} className="flex items-center">
+                        <TieCard {...d} />
+                      </div>
+                    )
+                  })}
                 </div>
-                {idx < totalStages - 1 && <div style={{ width: CONN_W }} />}
-              </div>
-            ))}
-          </div>
 
-          {/* Bracket body */}
-          <div className="flex" style={{ height: bracketH, minWidth: 'max-content', alignItems: 'flex-start' }}>
-            {stages.map((stage, stageIdx) => {
-              const ties    = stage.leg1Matches
-              const slotH   = TIE_SLOT * Math.pow(2, stageIdx)
-
-              return (
-                <div key={stage.name} className="flex items-start shrink-0">
-                  <div style={{ width: CARD_W, height: bracketH }} className="flex flex-col">
-                    {ties.map((leg1) => {
-                      const d = tieData(leg1, stageIdx, stage)
+                {stageIdx < totalStages - 1 && (
+                  <svg width={CONN_W} height={bracketH} className="shrink-0" style={{ overflow: 'visible' }}>
+                    {Array.from({ length: Math.floor(ties.length / 2) }, (_, j) => {
+                      const y1   = (2 * j) * slotH + slotH / 2
+                      const y2   = (2 * j + 1) * slotH + slotH / 2
+                      const yMid = (2 * j + 1) * slotH
+                      const mx   = CONN_W / 2
                       return (
-                        <div key={leg1.id} style={{ height: slotH, minHeight: slotH }} className="flex items-center">
-                          <TieCard {...d} />
-                        </div>
+                        <g key={j} stroke="currentColor" strokeWidth={1.5} fill="none" className="text-gray-300 dark:text-gray-600">
+                          <polyline points={`0,${y1} ${mx},${y1} ${mx},${yMid} ${CONN_W},${yMid}`} />
+                          <polyline points={`0,${y2} ${mx},${y2} ${mx},${yMid}`} />
+                        </g>
                       )
                     })}
-                  </div>
-
-                  {/* SVG connectors */}
-                  {stageIdx < totalStages - 1 && (
-                    <svg width={CONN_W} height={bracketH} className="shrink-0" style={{ overflow: 'visible' }}>
-                      {Array.from({ length: Math.floor(ties.length / 2) }, (_, j) => {
-                        const y1   = (2 * j) * slotH + slotH / 2
-                        const y2   = (2 * j + 1) * slotH + slotH / 2
-                        const yMid = (2 * j + 1) * slotH
-                        const mx   = CONN_W / 2
-                        return (
-                          <g key={j} stroke="currentColor" strokeWidth={1.5} fill="none" className="text-gray-300 dark:text-gray-600">
-                            <polyline points={`0,${y1} ${mx},${y1} ${mx},${yMid} ${CONN_W},${yMid}`} />
-                            <polyline points={`0,${y2} ${mx},${y2} ${mx},${yMid}`} />
-                          </g>
-                        )
-                      })}
-                      {ties.length % 2 === 1 && (() => {
-                        const y = (ties.length - 1) * slotH + slotH / 2
-                        return (
-                          <line key="bye" x1={0} y1={y} x2={CONN_W} y2={y}
-                            stroke="currentColor" strokeWidth={1.5}
-                            className="text-gray-300 dark:text-gray-600" />
-                        )
-                      })()}
-                    </svg>
-                  )}
-                </div>
-              )
-            })}
-          </div>
+                    {ties.length % 2 === 1 && (() => {
+                      const y = (ties.length - 1) * slotH + slotH / 2
+                      return (
+                        <line key="bye" x1={0} y1={y} x2={CONN_W} y2={y}
+                          stroke="currentColor" strokeWidth={1.5}
+                          className="text-gray-300 dark:text-gray-600" />
+                      )
+                    })()}
+                  </svg>
+                )}
+              </div>
+            )
+          })}
         </div>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -340,8 +256,6 @@ function TieCard({
   return card
 }
 
-// ─── Player Row ───────────────────────────────────────────────────────────────
-
 function TiePlayerRow({ name, l1Score, l2Score, isWinner, isLoser, hasLegs, isFinal }: {
   name: string; l1Score: number | null; l2Score: number | null
   isWinner: boolean; isLoser: boolean; hasLegs: boolean; isFinal: boolean
@@ -370,8 +284,6 @@ function TiePlayerRow({ name, l1Score, l2Score, isWinner, isLoser, hasLegs, isFi
     </div>
   )
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function ActionLink({ href, label }: { href: string; label: string }) {
   return (
