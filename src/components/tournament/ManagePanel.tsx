@@ -558,12 +558,13 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                     </div>
                   )}
 
-                  {/* awaiting_confirmation with scores but no screenshot — show plain confirm */}
-                  {m.status === 'awaiting_confirmation' && !m.submissionScreenshotSignedUrl &&
-                    m.player1_score !== null && m.player2_score !== null && (
+                  {/* awaiting_confirmation with no screenshot — show plain confirm */}
+                  {m.status === 'awaiting_confirmation' && !m.submissionScreenshotSignedUrl && (
                     <div className="mt-2 flex flex-col gap-1.5">
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Scores submitted — no screenshot provided.
+                        {m.player1_score !== null && m.player2_score !== null
+                          ? `Submitted score: ${m.player1_score} – ${m.player2_score}`
+                          : 'Result submitted — no screenshot provided.'}
                       </p>
                       {confirmErrors[m.id] && (
                         <p className="text-xs text-red-600 dark:text-red-400">{confirmErrors[m.id]}</p>

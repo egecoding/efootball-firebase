@@ -63,12 +63,27 @@ export async function POST(
     p1Score = player1_score
     p2Score = player2_score
   } else {
-    // awaiting_confirmation — use the scores already stored on the match
-    if (match.player1_score === null || match.player2_score === null) {
-      return NextResponse.json({ error: 'No scores submitted yet' }, { status: 409 })
+    // awaiting_confirmation — use scores from the match row if present,
+    // otherwise fall back to result_submissions (registered players store scores
+    // there only on first submission; the match row is not updated until confirmed)
+    if (match.player1_score !== null && match.player2_score !== null) {
+      p1Score = match.player1_score as number
+      p2Score = match.player2_score as number
+    } else {
+      const { data: submission } = await admin
+        .from('result_submissions')
+        .select('player1_score, player2_score')
+        .eq('match_id', params.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!submission || submission.player1_score === null || submission.player2_score === null) {
+        return NextResponse.json({ error: 'No scores submitted yet' }, { status: 409 })
+      }
+      p1Score = submission.player1_score as number
+      p2Score = submission.player2_score as number
     }
-    p1Score = match.player1_score as number
-    p2Score = match.player2_score as number
   }
 
   const isKnockoutPhase =

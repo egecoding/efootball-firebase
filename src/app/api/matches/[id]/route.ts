@@ -201,10 +201,11 @@ export async function PATCH(
   )
 
   if (!otherSubmission) {
-    // First submission only — mark awaiting
+    // First submission only — mark awaiting and store scores on match row so
+    // the organizer's confirm route (and manage panel) can read them directly.
     await admin
       .from('matches')
-      .update({ status: 'awaiting_confirmation' })
+      .update({ status: 'awaiting_confirmation', player1_score, player2_score })
       .eq('id', params.id)
     await activateLeg2IfNeeded()
     sendPush([tournament?.organizer_id], {
