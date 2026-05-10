@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Plus, Trophy, Swords, TrendingUp } from 'lucide-react'
+import { Plus, Trophy, Swords, TrendingUp, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
 import { Button } from '@/components/ui/Button'
@@ -160,7 +160,16 @@ export default async function DashboardPage() {
         {typedMyTournaments.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {typedMyTournaments.map((t) => (
-              <TournamentCard key={t.id} tournament={t} />
+              <div key={t.id} className="relative group/card">
+                <TournamentCard tournament={t} />
+                <Link
+                  href={`/tournaments/${t.id}/manage`}
+                  className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 px-2 py-1 text-xs font-medium text-gray-600 dark:text-gray-300 hover:border-brand-400 hover:text-brand-600 dark:hover:text-brand-400 shadow-sm transition-all opacity-0 group-hover/card:opacity-100 z-10"
+                >
+                  <Settings className="h-3 w-3" />
+                  Manage
+                </Link>
+              </div>
             ))}
           </div>
         ) : (

@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ManagePanel } from '@/components/tournament/ManagePanel'
@@ -82,7 +83,21 @@ export default async function ManageTournamentPage({ params }: PageProps) {
   const typedTournament = tournament as any as TournamentWithOrganizer
 
   if (typedTournament.organizer_id !== user.id && !isSuperAdmin) {
-    redirect(`/tournaments/${params.id}`)
+    return (
+      <div className="page-container">
+        <div className="max-w-md mx-auto text-center py-20">
+          <p className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-2">Access denied</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            You are not the organizer of this tournament.<br />
+            Logged in as: <span className="font-mono text-xs">{user.id}</span><br />
+            Organizer: <span className="font-mono text-xs">{typedTournament.organizer_id}</span>
+          </p>
+          <Link href={`/tournaments/${params.id}`} className="text-sm text-brand-500 hover:underline">
+            ← Back to tournament
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   // Fetch result_submissions for all matches so we can show screenshots
