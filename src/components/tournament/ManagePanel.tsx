@@ -480,11 +480,6 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {m.disputed && (
-                        <span title={m.dispute_reason ?? 'Disputed'} className="inline-flex items-center gap-1 rounded-full bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 px-2 py-0.5 text-[10px] font-semibold text-orange-700 dark:text-orange-400">
-                          ⚠️ Disputed
-                        </span>
-                      )}
                       <MatchStatusBadge status={m.status as 'pending' | 'scheduled' | 'awaiting_confirmation' | 'completed' | 'walkover'} />
                       <Link
                         href={`/matches/${m.id}`}
@@ -495,13 +490,6 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       </Link>
                     </div>
                   </div>
-
-                  {/* Dispute reason banner */}
-                  {m.disputed && m.dispute_reason && (
-                    <div className="rounded-lg border border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 px-3 py-2 text-xs text-orange-700 dark:text-orange-400">
-                      <span className="font-semibold">Dispute reason: </span>{m.dispute_reason}
-                    </div>
-                  )}
 
                   {/* Finalized screenshot */}
                   {m.screenshotSignedUrl && (
