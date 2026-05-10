@@ -22,8 +22,12 @@ interface TopScorersTableProps {
 interface ScorerEntry {
   key: string
   name: string
-  goals: number
-  matches: number
+  played: number
+  wins: number
+  losses: number
+  draws: number
+  goalsFor: number
+  goalsAgainst: number
   avatarUrl?: string | null
 }
 
@@ -58,7 +62,7 @@ function MiniAvatar({ name, avatarUrl }: { name: string; avatarUrl?: string | nu
 function resolveName(
   id: string | null,
   name: string | null,
-  profileMap: Record<string, { display_name?: string | null; username?: string | null; avatar_url?: string | null }>
+  profileMap: Record<string, { display_name?: string | null; username?: string | null }>
 ): string {
   if (id && profileMap[id]) {
     return profileMap[id].display_name ?? profileMap[id].username ?? name ?? 'Unknown'
@@ -86,44 +90,53 @@ export function TopScorersTable({ matches, profileMap }: TopScorersTableProps) {
 
   const scorerMap: Record<string, ScorerEntry> = {}
 
-  for (const m of completed) {
-    const p1Key = m.player1_id ?? m.player1_name
-    const p2Key = m.player2_id ?? m.player2_name
-
-    if (p1Key != null) {
-      if (!scorerMap[p1Key]) {
-        scorerMap[p1Key] = {
-          key: p1Key,
-          name: resolveName(m.player1_id, m.player1_name, profileMap),
-          goals: 0,
-          matches: 0,
-          avatarUrl: m.player1_id ? profileMap[m.player1_id]?.avatar_url : null,
-        }
+  function ensure(key: string, id: string | null, name: string | null) {
+    if (!scorerMap[key]) {
+      scorerMap[key] = {
+        key,
+        name: resolveName(id, name, profileMap),
+        played: 0, wins: 0, losses: 0, draws: 0,
+        goalsFor: 0, goalsAgainst: 0,
+        avatarUrl: id ? profileMap[id]?.avatar_url : null,
       }
-      scorerMap[p1Key].goals += m.player1_score ?? 0
-      scorerMap[p1Key].matches += 1
-    }
-
-    if (p2Key != null) {
-      if (!scorerMap[p2Key]) {
-        scorerMap[p2Key] = {
-          key: p2Key,
-          name: resolveName(m.player2_id, m.player2_name, profileMap),
-          goals: 0,
-          matches: 0,
-          avatarUrl: m.player2_id ? profileMap[m.player2_id]?.avatar_url : null,
-        }
-      }
-      scorerMap[p2Key].goals += m.player2_score ?? 0
-      scorerMap[p2Key].matches += 1
     }
   }
 
-  const scorers = Object.values(scorerMap).sort(
-    (a, b) => b.goals - a.goals || b.matches - a.matches
+  for (const m of completed) {
+    const p1Key = m.player1_id ?? m.player1_name
+    const p2Key = m.player2_id ?? m.player2_name
+    const s1 = m.player1_score ?? 0
+    const s2 = m.player2_score ?? 0
+
+    if (p1Key != null) {
+      ensure(p1Key, m.player1_id, m.player1_name)
+      scorerMap[p1Key].played += 1
+      scorerMap[p1Key].goalsFor += s1
+      scorerMap[p1Key].goalsAgainst += s2
+      if (s1 > s2) scorerMap[p1Key].wins += 1
+      else if (s1 < s2) scorerMap[p1Key].losses += 1
+      else scorerMap[p1Key].draws += 1
+    }
+
+    if (p2Key != null) {
+      ensure(p2Key, m.player2_id, m.player2_name)
+      scorerMap[p2Key].played += 1
+      scorerMap[p2Key].goalsFor += s2
+      scorerMap[p2Key].goalsAgainst += s1
+      if (s2 > s1) scorerMap[p2Key].wins += 1
+      else if (s2 < s1) scorerMap[p2Key].losses += 1
+      else scorerMap[p2Key].draws += 1
+    }
+  }
+
+  // Sort by goals scored desc, then wins, then goal difference
+  const scorers = Object.values(scorerMap).sort((a, b) =>
+    b.goalsFor - a.goalsFor ||
+    b.wins - a.wins ||
+    (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst)
   )
 
-  const maxGoals = scorers[0]?.goals ?? 1
+  const maxGoals = scorers[0]?.goalsFor ?? 1
 
   return (
     <div className="rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 overflow-hidden">
@@ -131,100 +144,120 @@ export function TopScorersTable({ matches, profileMap }: TopScorersTableProps) {
         onClick={() => setOpen((o) => !o)}
         className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
       >
-        <span className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          ⚽ Top Scorers
-        </span>
+        <span className="font-semibold text-gray-900 dark:text-white">⚽ Player Stats</span>
         {open
           ? <ChevronUp className="h-4 w-4 text-gray-400" />
           : <ChevronDown className="h-4 w-4 text-gray-400" />}
       </button>
 
       {open && (
-        <div className="border-t border-gray-100 dark:border-gray-800">
+        <div className="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
           {scorers.length === 0 ? (
             <p className="px-5 py-8 text-sm text-center text-gray-400 dark:text-gray-500">
               No matches completed yet — check back soon.
             </p>
           ) : (
-            <>
-              {/* Header row */}
-              <div className="grid grid-cols-[2rem_1fr_3.5rem_3rem_3.5rem] gap-0 px-4 py-2 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-100 dark:border-gray-800">
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">#</span>
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider pl-9">Player</span>
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center">⚽</span>
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center hidden sm:block">GP</span>
-                <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider text-center hidden sm:block">Avg</span>
-              </div>
-
-              {/* Player rows */}
-              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            <table className="w-full text-sm min-w-[520px]">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/60">
+                  <th className="px-4 py-2.5 text-center font-semibold text-gray-400 text-[10px] uppercase tracking-wider w-10">#</th>
+                  <th className="px-4 py-2.5 text-left font-semibold text-gray-400 text-[10px] uppercase tracking-wider">Player</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-gray-400 text-[10px] uppercase tracking-wider w-12" title="Matches Played">GP</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-green-500 text-[10px] uppercase tracking-wider w-12" title="Wins">W</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-gray-400 text-[10px] uppercase tracking-wider w-12" title="Draws">D</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-red-400 text-[10px] uppercase tracking-wider w-12" title="Losses">L</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-brand-500 text-[10px] uppercase tracking-wider w-12" title="Goals Scored">GF</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-gray-400 text-[10px] uppercase tracking-wider w-12" title="Goals Against">GA</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-purple-500 text-[10px] uppercase tracking-wider w-14" title="Goal Difference">GD</th>
+                  <th className="px-3 py-2.5 text-center font-semibold text-gray-400 text-[10px] uppercase tracking-wider w-14" title="Average goals scored per game">Avg</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {scorers.map((s, idx) => {
                   const rank = idx + 1
-                  const avg = s.matches > 0 ? (s.goals / s.matches).toFixed(1) : '0.0'
-                  const barWidth = maxGoals > 0 ? (s.goals / maxGoals) * 100 : 0
+                  const gd = s.goalsFor - s.goalsAgainst
+                  const avg = s.played > 0 ? (s.goalsFor / s.played).toFixed(1) : '0.0'
+                  const barWidth = maxGoals > 0 ? (s.goalsFor / maxGoals) * 100 : 0
                   const rowStyle = RANK_STYLES[rank] ?? ''
                   const medal = RANK_MEDALS[rank]
 
                   return (
-                    <div
+                    <tr
                       key={s.key}
-                      className={`grid grid-cols-[2rem_1fr_3.5rem_3rem_3.5rem] gap-0 px-4 py-3 items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${rowStyle}`}
+                      className={`transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50 ${rowStyle}`}
                     >
                       {/* Rank */}
-                      <div className="flex justify-center">
+                      <td className="px-4 py-3 text-center">
                         {medal ? (
                           <span className="text-base leading-none">{medal}</span>
                         ) : (
                           <span className="text-xs text-gray-400 font-mono tabular-nums">{rank}</span>
                         )}
-                      </div>
+                      </td>
 
                       {/* Player name + goal bar */}
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <MiniAvatar name={s.name} avatarUrl={s.avatarUrl} />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">
-                            {s.name}
-                          </p>
-                          {/* Goal bar */}
-                          <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                rank === 1
-                                  ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
-                                  : rank === 2
-                                  ? 'bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-500 dark:to-gray-600'
-                                  : rank === 3
-                                  ? 'bg-gradient-to-r from-orange-300 to-orange-400'
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <MiniAvatar name={s.name} avatarUrl={s.avatarUrl} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate leading-tight">
+                              {s.name}
+                            </p>
+                            <div className="mt-1 h-1.5 w-full max-w-[120px] rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  rank === 1 ? 'bg-gradient-to-r from-yellow-400 to-amber-500'
+                                  : rank === 2 ? 'bg-gradient-to-r from-gray-300 to-gray-400 dark:from-gray-500 dark:to-gray-600'
+                                  : rank === 3 ? 'bg-gradient-to-r from-orange-300 to-orange-400'
                                   : 'bg-brand-500'
-                              }`}
-                              style={{ width: `${barWidth}%` }}
-                            />
+                                }`}
+                                style={{ width: `${barWidth}%` }}
+                              />
+                            </div>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Goals */}
-                      <div className="text-center">
-                        <span className={`text-sm font-bold tabular-nums ${rank === 1 ? 'text-amber-500' : 'text-brand-500'}`}>
-                          {s.goals}
-                        </span>
-                      </div>
+                      </td>
 
                       {/* GP */}
-                      <div className="text-center hidden sm:block">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{s.matches}</span>
-                      </div>
+                      <td className="px-3 py-3 text-center text-xs text-gray-500 dark:text-gray-400 tabular-nums">{s.played}</td>
+
+                      {/* W */}
+                      <td className="px-3 py-3 text-center">
+                        <span className="text-xs font-bold text-green-600 dark:text-green-400 tabular-nums">{s.wins}</span>
+                      </td>
+
+                      {/* D */}
+                      <td className="px-3 py-3 text-center text-xs text-gray-400 tabular-nums">{s.draws}</td>
+
+                      {/* L */}
+                      <td className="px-3 py-3 text-center">
+                        <span className="text-xs font-semibold text-red-500 dark:text-red-400 tabular-nums">{s.losses}</span>
+                      </td>
+
+                      {/* GF */}
+                      <td className="px-3 py-3 text-center">
+                        <span className={`text-sm font-bold tabular-nums ${rank === 1 ? 'text-amber-500' : 'text-brand-500'}`}>
+                          {s.goalsFor}
+                        </span>
+                      </td>
+
+                      {/* GA */}
+                      <td className="px-3 py-3 text-center text-xs text-gray-500 dark:text-gray-400 tabular-nums">{s.goalsAgainst}</td>
+
+                      {/* GD */}
+                      <td className="px-3 py-3 text-center">
+                        <span className={`text-xs font-bold tabular-nums ${gd > 0 ? 'text-purple-500 dark:text-purple-400' : gd < 0 ? 'text-gray-400' : 'text-gray-400'}`}>
+                          {gd > 0 ? `+${gd}` : gd}
+                        </span>
+                      </td>
 
                       {/* Avg */}
-                      <div className="text-center hidden sm:block">
-                        <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">{avg}</span>
-                      </div>
-                    </div>
+                      <td className="px-3 py-3 text-center text-xs text-gray-500 dark:text-gray-400 tabular-nums">{avg}</td>
+                    </tr>
                   )
                 })}
-              </div>
-            </>
+              </tbody>
+            </table>
           )}
         </div>
       )}
