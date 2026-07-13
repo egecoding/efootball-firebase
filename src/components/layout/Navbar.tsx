@@ -67,6 +67,7 @@ export function Navbar({ user, profile }: NavbarProps) {
         { href: '#features', label: 'Features' },
         { href: '#how-it-works', label: 'How it works' },
         { href: '#tournaments', label: 'Tournaments' },
+        { href: '/tournaments', label: 'Browse Tournaments' },
       ]
     : [
         { href: '/tournaments', label: 'Tournaments' },

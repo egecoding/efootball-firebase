@@ -1,8 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Leaderboard — eFootball Cup',
+  description: 'See the top eFootball players ranked by wins across every tournament hosted on eFootball Cup.',
+  openGraph: {
+    title: 'Leaderboard — eFootball Cup',
+    description: 'See the top eFootball players ranked by wins across every tournament hosted on eFootball Cup.',
+    type: 'website',
+  },
+}
 
 const AVATAR_COLORS = [
   'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',

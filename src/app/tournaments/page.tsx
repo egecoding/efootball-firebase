@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
@@ -6,12 +7,32 @@ import type { TournamentWithOrganizer } from '@/types/database'
 
 export const revalidate = 30
 
+export const metadata: Metadata = {
+  title: 'Browse eFootball Tournaments — eFootball Cup',
+  description:
+    'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community — no account needed to join.',
+  openGraph: {
+    title: 'Browse eFootball Tournaments — eFootball Cup',
+    description: 'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community.',
+    type: 'website',
+  },
+}
+
+const STATUS_FILTERS = [
+  { value: '', label: 'All' },
+  { value: 'upcoming', label: 'Upcoming' },
+  { value: 'in_progress', label: 'Live' },
+  { value: 'completed', label: 'Completed' },
+] as const
+
 interface PageProps {
-  searchParams: { q?: string }
+  searchParams: { q?: string; status?: string; format?: string }
 }
 
 export default async function TournamentsPage({ searchParams }: PageProps) {
   const query = searchParams.q ?? ''
+  const status = searchParams.status ?? ''
+  const format = searchParams.format ?? ''
   const supabase = await createClient()
 
   const {
@@ -21,7 +42,7 @@ export default async function TournamentsPage({ searchParams }: PageProps) {
   let qb = supabase
     .from('tournaments')
     .select(
-      'id, organizer_id, title, description, game_name, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
+      'id, organizer_id, title, description, game_name, format, max_participants, status, invite_code, is_public, starts_at, created_at, updated_at, profiles(id, username, display_name, avatar_url)'
     )
     .eq('is_public', true)
     .order('created_at', { ascending: false })
@@ -33,8 +54,31 @@ export default async function TournamentsPage({ searchParams }: PageProps) {
       config: 'english',
     })
   }
+  if (status) {
+    qb = qb.eq('status', status)
+  }
+  if (format) {
+    qb = qb.eq('format', format)
+  }
 
-  const { data: tournaments } = await qb
+  const [{ data: tournaments }, { data: allPublicFormats }] = await Promise.all([
+    qb,
+    supabase.from('tournaments').select('format').eq('is_public', true),
+  ])
+
+  const formats = Array.from(
+    new Set((allPublicFormats ?? []).map((t) => t.format as string))
+  ).sort()
+
+  function filterHref(next: Partial<{ q: string; status: string; format: string }>) {
+    const params = new URLSearchParams()
+    const merged = { q: query, status, format, ...next }
+    if (merged.q) params.set('q', merged.q)
+    if (merged.status) params.set('status', merged.status)
+    if (merged.format) params.set('format', merged.format)
+    const qs = params.toString()
+    return qs ? `/tournaments?${qs}` : '/tournaments'
+  }
 
   return (
     <div className="page-container">
@@ -58,7 +102,9 @@ export default async function TournamentsPage({ searchParams }: PageProps) {
       </div>
 
       {/* Search */}
-      <form method="get" className="mb-6">
+      <form method="get" className="mb-4">
+        {status && <input type="hidden" name="status" value={status} />}
+        {format && <input type="hidden" name="format" value={format} />}
         <div className="relative max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -71,6 +117,52 @@ export default async function TournamentsPage({ searchParams }: PageProps) {
         </div>
       </form>
 
+      {/* Status filter */}
+      <div className="flex flex-wrap items-center gap-2 mb-3">
+        {STATUS_FILTERS.map((f) => (
+          <Link
+            key={f.value}
+            href={filterHref({ status: f.value })}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              status === f.value
+                ? 'bg-brand-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            {f.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Format filter */}
+      {formats.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-6">
+          <Link
+            href={filterHref({ format: '' })}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              format === ''
+                ? 'bg-brand-500 text-white'
+                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+            }`}
+          >
+            All formats
+          </Link>
+          {formats.map((f) => (
+            <Link
+              key={f}
+              href={filterHref({ format: f })}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors capitalize ${
+                format === f
+                  ? 'bg-brand-500 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+              }`}
+            >
+              {f.replace(/_/g, ' ')}
+            </Link>
+          ))}
+        </div>
+      )}
+
       {tournaments && tournaments.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(tournaments as unknown as TournamentWithOrganizer[]).map((t) => (
@@ -80,7 +172,7 @@ export default async function TournamentsPage({ searchParams }: PageProps) {
       ) : (
         <div className="text-center py-20">
           <p className="text-gray-400 dark:text-gray-500 text-lg mb-4">
-            {query ? 'No tournaments found for your search.' : 'No tournaments yet.'}
+            {query || status || format ? 'No tournaments found for your filters.' : 'No tournaments yet.'}
           </p>
           {user && (
             <Link

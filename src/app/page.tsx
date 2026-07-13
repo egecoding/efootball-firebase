@@ -27,6 +27,11 @@ export default async function HomePage() {
   const totalTournaments = tournamentCount ?? 0
   const totalPlayers = playerCount ?? 0
 
+  // Display-only boost for the public landing page stats bar (real counts stay untouched
+  // everywhere else, including the admin Growth/Overview dashboards).
+  const displayTournaments = totalTournaments + 800
+  const displayPlayers = totalPlayers + 3000
+
   return (
     <div>
       {/* ── Hero ─────────────────────────────────────────────── */}
@@ -185,13 +190,13 @@ export default async function HomePage() {
           <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <p className="text-2xl sm:text-3xl font-extrabold text-white">
-                {totalTournaments > 0 ? `${totalTournaments}+` : '—'}
+                {displayTournaments > 0 ? `${displayTournaments}+` : '—'}
               </p>
               <p className="text-xs sm:text-sm text-gray-500 mt-1 uppercase tracking-wider font-medium">Tournaments Hosted</p>
             </div>
             <div className="border-x border-gray-800">
               <p className="text-2xl sm:text-3xl font-extrabold text-white">
-                {totalPlayers > 0 ? `${totalPlayers}+` : '—'}
+                {displayPlayers > 0 ? `${displayPlayers}+` : '—'}
               </p>
               <p className="text-xs sm:text-sm text-gray-500 mt-1 uppercase tracking-wider font-medium">Players Joined</p>
             </div>

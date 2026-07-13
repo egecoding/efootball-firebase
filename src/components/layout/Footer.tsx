@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Trophy } from 'lucide-react'
+import { WHATSAPP_NUMBER } from '@/lib/constants'
 
 export function Footer() {
   return (
@@ -38,7 +39,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li>
                 <a
-                  href="https://wa.me/254700000000"
+                  href={`https://wa.me/${WHATSAPP_NUMBER}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 hover:text-brand-400 transition-colors"

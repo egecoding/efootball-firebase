@@ -1,9 +1,18 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Users, Trophy, BarChart3, Bell, Search, ChevronLeft, ChevronRight, Shield, ShieldOff } from 'lucide-react'
+import { Users, Trophy, BarChart3, Bell, Search, ChevronLeft, ChevronRight, Shield, ShieldOff, TrendingUp } from 'lucide-react'
 
-type Tab = 'overview' | 'users' | 'tournaments' | 'notifications'
+type Tab = 'overview' | 'growth' | 'users' | 'tournaments' | 'notifications'
+
+interface GrowthStats {
+  days: string[]
+  signups: number[]
+  tournamentsCreated: number[]
+  joins: number[]
+  publicTournaments: number
+  privateTournaments: number
+}
 
 interface Stats {
   totalUsers: number
@@ -60,6 +69,7 @@ export function AdminPanel() {
         <div className="flex gap-1 mb-8 bg-gray-900 rounded-xl p-1 w-fit">
           {([
             { id: 'overview', label: 'Overview', icon: BarChart3 },
+            { id: 'growth', label: 'Growth', icon: TrendingUp },
             { id: 'users', label: 'Users', icon: Users },
             { id: 'tournaments', label: 'Tournaments', icon: Trophy },
             { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -81,6 +91,7 @@ export function AdminPanel() {
 
         {/* Content */}
         {tab === 'overview' && <OverviewTab stats={stats} />}
+        {tab === 'growth' && <GrowthTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'tournaments' && <TournamentsTab />}
         {tab === 'notifications' && <NotificationsTab />}
@@ -144,6 +155,72 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
             </tbody>
           </table>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Growth ────────────────────────────────────────────────────────────────────
+
+function Sparkbars({ label, values, days, color }: { label: string; values: number[]; days: string[]; color: string }) {
+  const max = Math.max(1, ...values)
+  const total = values.reduce((a, b) => a + b, 0)
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+      <div className="flex items-baseline justify-between mb-4">
+        <p className="text-sm text-gray-400">{label}</p>
+        <p className="text-2xl font-bold">{total}</p>
+      </div>
+      <div className="flex items-end gap-[3px] h-20">
+        {values.map((v, i) => (
+          <div
+            key={days[i]}
+            title={`${days[i]}: ${v}`}
+            className={`flex-1 rounded-sm ${color}`}
+            style={{ height: `${Math.max(4, (v / max) * 100)}%` }}
+          />
+        ))}
+      </div>
+      <div className="flex justify-between text-[10px] text-gray-600 mt-2">
+        <span>{days[0]}</span>
+        <span>{days[days.length - 1]}</span>
+      </div>
+    </div>
+  )
+}
+
+function GrowthTab() {
+  const [stats, setStats] = useState<GrowthStats | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/growth-stats').then((r) => r.json()).then(setStats)
+  }, [])
+
+  if (!stats) return <div className="text-gray-500 animate-pulse">Loading growth stats…</div>
+
+  const total = stats.publicTournaments + stats.privateTournaments
+  const publicPct = total > 0 ? Math.round((stats.publicTournaments / total) * 100) : 0
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-gray-500">Last 30 days — signals for whether SEO, sharing, and discovery changes are working.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Sparkbars label="New signups" values={stats.signups} days={stats.days} color="bg-blue-500" />
+        <Sparkbars label="Tournaments created" values={stats.tournamentsCreated} days={stats.days} color="bg-brand-500" />
+        <Sparkbars label="Tournament joins" values={stats.joins} days={stats.days} color="bg-purple-500" />
+      </div>
+
+      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+        <p className="text-sm text-gray-400 mb-3">Public vs. private tournaments</p>
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-3 rounded-full bg-gray-800 overflow-hidden">
+            <div className="h-full bg-brand-500" style={{ width: `${publicPct}%` }} />
+          </div>
+          <span className="text-xs text-gray-500 shrink-0">{publicPct}% public</span>
+        </div>
+        <p className="text-xs text-gray-600 mt-2">
+          {stats.publicTournaments} public (discoverable, indexed via sitemap) · {stats.privateTournaments} private
+        </p>
       </div>
     </div>
   )

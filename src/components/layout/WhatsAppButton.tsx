@@ -1,9 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-
-// Update this number to your WhatsApp number (international format, no + or spaces)
-const WHATSAPP_NUMBER = '254700000000'
+import { WHATSAPP_NUMBER } from '@/lib/constants'
 
 export function WhatsAppButton() {
   const [hovered, setHovered] = useState(false)

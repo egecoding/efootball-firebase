@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
@@ -8,13 +9,27 @@ import { WhatsAppButton } from '@/components/layout/WhatsAppButton'
 import { InstallPrompt } from '@/components/layout/InstallPrompt'
 import { PushPrompt } from '@/components/layout/PushPrompt'
 import { createClient } from '@/lib/supabase/server'
+import { SITE_URL } from '@/lib/site'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'eFootball Cup — Tournament Manager',
   description:
     'Create and manage eFootball tournaments. Generate brackets, track matches, and compete with players worldwide.',
+  openGraph: {
+    title: 'eFootball Cup — Tournament Manager',
+    description:
+      'Create and manage eFootball tournaments. Generate brackets, track matches, and compete with players worldwide. Free forever.',
+    type: 'website',
+    siteName: 'eFootball Cup',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'eFootball Cup — Tournament Manager',
+    description: 'Create and manage eFootball tournaments. Free forever.',
+  },
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -62,6 +77,7 @@ export default async function RootLayout({
           <InstallPrompt />
           <PushPrompt />
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )
