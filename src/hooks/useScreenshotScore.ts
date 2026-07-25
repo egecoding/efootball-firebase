@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createWorker, type Worker } from 'tesseract.js'
+import { createWorker, PSM, type Worker } from 'tesseract.js'
+import { preprocessImage, extractScore, type OcrScore } from '@/lib/utils/screenshot-ocr'
 
 export type ScreenshotUploadStatus = 'idle' | 'scanning' | 'uploading' | 'done' | 'error'
 
@@ -11,69 +12,18 @@ export interface AiNotice {
   text: string
 }
 
-interface OcrWord {
-  text: string
-  confidence: number
-  bbox: { x0: number }
-}
-
-export interface OcrScore {
-  player1_score: number
-  player2_score: number
-  confidence: 'high' | 'low'
-}
-
-interface ScoreCandidate {
-  value: number
-  confidence: number
-  x: number
-}
-
-// eFootball's scoreboard is large, high-contrast digits — Tesseract reads it well
-// above 70 on a clean screenshot. A false "high" here causes an unreviewed
-// auto-finalize server-side, so this stays conservative rather than lenient.
-const CONFIDENCE_THRESHOLD = 70
 // Generous multiple of the typical case (~1-5s on a modern phone). Past this we
 // give up rather than leave someone stuck on "scanning" indefinitely.
 const OCR_TIMEOUT_MS = 20000
-
-/**
- * Picks the two most plausible score digits out of everything Tesseract read.
- * Mirrors the old Gemini prompt's assumption that player 1 is on the left.
- */
-function extractScoreFromWords(words: OcrWord[]): OcrScore | null {
-  const candidates: ScoreCandidate[] = []
-  for (const w of words) {
-    const t = w.text.trim()
-    if (/^\d{1,2}$/.test(t)) {
-      candidates.push({ value: parseInt(t, 10), confidence: w.confidence, x: w.bbox.x0 })
-    }
-  }
-
-  if (candidates.length < 2) return null
-
-  // More than two numeric tokens: keep the two Tesseract is most sure about.
-  // Position alone isn't reliable here since nothing guarantees a consistent
-  // crop/layout, but confidence self-corrects — noisy picks usually also fail
-  // the threshold below rather than silently producing a false "high".
-  const chosen =
-    candidates.length === 2
-      ? candidates
-      : [...candidates].sort((a, b) => b.confidence - a.confidence).slice(0, 2)
-
-  chosen.sort((a, b) => a.x - b.x)
-  const [left, right] = chosen
-  const confidence: 'high' | 'low' =
-    left.confidence >= CONFIDENCE_THRESHOLD && right.confidence >= CONFIDENCE_THRESHOLD ? 'high' : 'low'
-
-  return { player1_score: left.value, player2_score: right.value, confidence }
-}
 
 interface UseScreenshotScoreOptions {
   matchId: string | null
   /** Guests authenticate via participant id; registered users via session (no header). */
   participantId: string | null
   currentUserId: string | null
+  /** Used to attribute each score to the right player instead of guessing by position. */
+  player1Name: string | null
+  player2Name: string | null
   onScoreDetected: (player1Score: number, player2Score: number) => void
 }
 
@@ -84,7 +34,14 @@ interface UseScreenshotScoreOptions {
  * the extracted result attached so the server can write it and auto-finalize
  * on a confident read exactly as it did when Gemini produced that signal.
  */
-export function useScreenshotScore({ matchId, participantId, currentUserId, onScoreDetected }: UseScreenshotScoreOptions) {
+export function useScreenshotScore({
+  matchId,
+  participantId,
+  currentUserId,
+  player1Name,
+  player2Name,
+  onScoreDetected,
+}: UseScreenshotScoreOptions) {
   const router = useRouter()
   const workerRef = useRef<Worker | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -103,7 +60,12 @@ export function useScreenshotScore({ matchId, participantId, currentUserId, onSc
 
   async function ensureWorker(): Promise<Worker> {
     if (!workerRef.current) {
-      workerRef.current = await createWorker('eng')
+      const worker = await createWorker('eng')
+      // A game HUD is scattered text over a busy background, not a page of
+      // paragraphs — sparse-text mode is a better fit than the page-layout
+      // assumption Tesseract defaults to.
+      await worker.setParameters({ tessedit_pageseg_mode: PSM.SPARSE_TEXT })
+      workerRef.current = worker
     }
     return workerRef.current
   }
@@ -112,10 +74,11 @@ export function useScreenshotScore({ matchId, participantId, currentUserId, onSc
     let timedOut = false
     const worker = await ensureWorker()
 
-    const recognizePromise = worker
-      .recognize(file)
-      .then((res) => extractScoreFromWords((res.data.words ?? []) as OcrWord[]))
-      .catch(() => null)
+    const recognizePromise = (async () => {
+      const image = await preprocessImage(file).catch(() => file)
+      const res = await worker.recognize(image)
+      return extractScore(res.data, player1Name, player2Name)
+    })().catch(() => null)
 
     const timeoutPromise = new Promise<null>((resolve) => {
       setTimeout(() => {

@@ -44,6 +44,8 @@ export function GuestResultForm({
     matchId,
     participantId,
     currentUserId: null,
+    player1Name,
+    player2Name,
     onScoreDetected: (p1, p2) => {
       setP1Score(String(p1))
       setP2Score(String(p2))

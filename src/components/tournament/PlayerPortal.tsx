@@ -76,11 +76,22 @@ export function PlayerPortal({
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null)
 
+  // Resolved so the OCR can attribute each score to the right player instead of
+  // guessing by position — same name-resolution order used elsewhere in this file.
+  const resolvedPlayer1Name = myMatch
+    ? myMatch.player1_name ?? profileMap[myMatch.player1_id ?? '']?.display_name ?? profileMap[myMatch.player1_id ?? '']?.username ?? null
+    : null
+  const resolvedPlayer2Name = myMatch
+    ? myMatch.player2_name ?? profileMap[myMatch.player2_id ?? '']?.display_name ?? profileMap[myMatch.player2_id ?? '']?.username ?? null
+    : null
+
   // Screenshot state — read client-side with Tesseract.js (free, no external API)
   const { uploadStatus, uploadFileName, screenshotPath, aiNotice, fileRef, handleFile, clear: clearScreenshot } = useScreenshotScore({
     matchId: myMatch?.id ?? null,
     participantId,
     currentUserId,
+    player1Name: resolvedPlayer1Name,
+    player2Name: resolvedPlayer2Name,
     onScoreDetected: (p1, p2) => {
       setP1Score(String(p1))
       setP2Score(String(p2))
