@@ -117,7 +117,14 @@ export async function POST(
   const advancers: { id: string | null; name: string | null; participantId: string }[] = []
 
   const sortedGroupNames = Array.from(groupStandings.keys()).sort()
-  const advancePerGroup = groupStandings.get(sortedGroupNames[0])!.length <= 2 ? 1 : 2
+
+  // Base this on the SMALLEST group, not the first one. Groups can differ in size,
+  // and taking 2 from a group of 2 advances its loser as well — which also pushes
+  // the advancer count off a power of 2 and leaves the bracket unfillable.
+  const smallestGroupSize = Math.min(
+    ...sortedGroupNames.map((g) => groupStandings.get(g)!.length)
+  )
+  const advancePerGroup = smallestGroupSize <= 2 ? 1 : 2
 
   for (const gName of sortedGroupNames) {
     const standings = groupStandings.get(gName)!
@@ -301,6 +308,79 @@ export async function POST(
       const nextLeg1Id = matchNumToId.get(nextLegs.leg1)!
       const thisLegId = legs.leg2 !== undefined ? matchNumToId.get(legs.leg2)! : matchNumToId.get(legs.leg1)!
       await admin.from('matches').update({ next_match_id: nextLeg1Id, next_match_slot: m.nextMatchSlot }).eq('id', thisLegId)
+    }
+  }
+
+  // Advance byes. When the advancer count isn't a power of 2 the bracket is padded,
+  // producing ties with only one player (status 'walkover'). Without this the next
+  // round's slot is never filled and the knockout stage deadlocks. Re-read the rows
+  // so the next_match_id wiring above is visible.
+  const { data: wiredMatches } = await admin
+    .from('matches')
+    .select('id, player1_id, player1_name, player2_id, player2_name, next_match_id, next_match_slot, tie_id, leg, status')
+    .eq('tournament_id', params.id)
+    .eq('status', 'walkover')
+
+  for (const bye of wiredMatches ?? []) {
+    // Only handle byes from the bracket we just created (leg 1, or the final).
+    if (bye.leg === 2) continue
+
+    const hasP1 = bye.player1_id !== null || bye.player1_name !== null
+    const hasP2 = bye.player2_id !== null || bye.player2_name !== null
+    if (hasP1 === hasP2) continue // both filled or both empty: not a bye
+
+    const winnerId = hasP1 ? bye.player1_id : bye.player2_id
+    const winnerName = hasP1 ? bye.player1_name : bye.player2_name
+
+    // Two-legged tie: settle leg 2 as well, then advance from it (leg 2 is the
+    // leg wired to the next round).
+    let advanceFrom: { next_match_id: string | null; next_match_slot: number | null } = bye
+
+    if (bye.tie_id && bye.leg === 1 && bye.next_match_id) {
+      const { data: leg2 } = await admin
+        .from('matches')
+        .select('id, next_match_id, next_match_slot')
+        .eq('id', bye.next_match_id)
+        .single()
+
+      if (leg2) {
+        // Leg 2 swaps home/away, so the winner occupies the opposite slot.
+        const leg2Slot = hasP1 ? 'player2' : 'player1'
+        await admin.from('matches').update({
+          winner_id: winnerId,
+          status: 'walkover',
+          [`${leg2Slot}_id`]: winnerId,
+          [`${leg2Slot}_name`]: winnerName,
+        }).eq('id', leg2.id)
+        advanceFrom = leg2
+      }
+    }
+
+    await admin.from('matches').update({ winner_id: winnerId }).eq('id', bye.id)
+
+    if (advanceFrom.next_match_id && advanceFrom.next_match_slot) {
+      const idField = advanceFrom.next_match_slot === 1 ? 'player1_id' : 'player2_id'
+      const nameField = advanceFrom.next_match_slot === 1 ? 'player1_name' : 'player2_name'
+      await admin.from('matches')
+        .update({ [idField]: winnerId, [nameField]: winnerName })
+        .eq('id', advanceFrom.next_match_id)
+    }
+  }
+
+  // Open any match whose two slots are now both filled (see note above about
+  // half-populated matches being submittable).
+  const { data: pendingMatches } = await admin
+    .from('matches')
+    .select('id, player1_id, player1_name, player2_id, player2_name, leg')
+    .eq('tournament_id', params.id)
+    .eq('status', 'pending')
+
+  for (const p of pendingMatches ?? []) {
+    if (p.leg === 2) continue // leg 2 stays locked until leg 1 is played
+    const hasP1 = p.player1_id !== null || p.player1_name !== null
+    const hasP2 = p.player2_id !== null || p.player2_name !== null
+    if (hasP1 && hasP2) {
+      await admin.from('matches').update({ status: 'scheduled' }).eq('id', p.id)
     }
   }
 

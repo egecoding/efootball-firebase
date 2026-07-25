@@ -2,10 +2,20 @@
 
 import { useEffect } from 'react'
 
+interface PushPromptProps {
+  /** Only signed-in users get here — see the guard below. */
+  enabled: boolean
+}
+
 // Silently auto-subscribes logged-in users to push notifications on app load.
 // No banner shown — browser's native permission dialog fires automatically.
-export function PushPrompt() {
+export function PushPrompt({ enabled }: PushPromptProps) {
   useEffect(() => {
+    // Never prompt anonymous visitors: the subscribe endpoint rejects them with
+    // 401 anyway, and an unsolicited permission dialog on a first visit is what
+    // browsers punish with a permanent auto-block. Guests are handled separately
+    // by GuestPushPrompt, which has a participant id to attach the subscription to.
+    if (!enabled) return
     if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return
     if (Notification.permission === 'denied') return
 
@@ -44,7 +54,7 @@ export function PushPrompt() {
     }
 
     subscribe()
-  }, [])
+  }, [enabled])
 
   return null
 }

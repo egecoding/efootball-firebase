@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
 import { GuestResultForm } from '@/components/match/GuestResultForm'
 import { DisputeButton } from '@/components/match/DisputeButton'
+import { DisputeSection } from '@/components/match/DisputeSection'
 import { PredictionBar } from '@/components/match/PredictionBar'
 import { MatchStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
@@ -23,7 +24,7 @@ export default async function MatchPage({ params }: PageProps) {
 
   // Use admin client so guests can view match details without a session.
   // Fall back to the regular client if the admin client fails (missing env var or schema permissions).
-  const MATCH_SELECT = 'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, tie_id, leg'
+  const MATCH_SELECT = 'id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, tie_id, leg, disputed, dispute_reason'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let match: any = null
@@ -259,6 +260,17 @@ export default async function MatchPage({ params }: PageProps) {
                 </Link>
                 .
               </div>
+            )}
+
+            {/* Finalized result — a player can still contest it (the AI may have misread).
+                Guests get here too: their identity is resolved client-side. */}
+            {(typedMatch.status === 'completed' || typedMatch.status === 'walkover') && (
+              <DisputeSection
+                matchId={typedMatch.id}
+                tournamentId={typedMatch.tournament_id}
+                isSignedInPlayer={!!isPlayer}
+                disputed={!!(typedMatch as unknown as { disputed?: boolean }).disputed}
+              />
             )}
 
             {typedMatch.played_at && typedMatch.status === 'completed' && (

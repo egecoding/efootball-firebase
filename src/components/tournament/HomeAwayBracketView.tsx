@@ -36,6 +36,12 @@ interface TieData {
 }
 
 export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organizerId }: HomeAwayBracketViewProps) {
+  // Declared before the `stages.length === 0` early return below — hooks after a
+  // conditional return crash with "Rendered more hooks than during the previous
+  // render" as soon as rounds populate while this component stays mounted.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [atEnd, setAtEnd] = useState(false)
+
   const sorted = [...rounds].sort((a, b) => a.round_number - b.round_number)
 
   const stages: Stage[] = []
@@ -94,8 +100,20 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     const leg2Done = leg2?.status === 'completed' || leg2?.status === 'walkover'
     const bothDone = leg1Done && leg2Done
 
-    const winnerA = bothDone && aggA !== null && aggB !== null && aggA > aggB
-    const winnerB = bothDone && aggA !== null && aggB !== null && aggB > aggA
+    // Mirror the tiebreak finalizeMatch actually applies: on a level aggregate,
+    // away goals decide (A's away goals are their leg-2 tally, B's are leg 1),
+    // and if those are level too, team A advances. Without this the tie showed
+    // no winner at all while one side had silently moved on.
+    const aggLevel = bothDone && aggA !== null && aggB !== null && aggA === aggB
+    const awayA = l2A ?? 0
+    const awayB = l1B ?? 0
+
+    const winnerA =
+      bothDone && aggA !== null && aggB !== null &&
+      (aggA > aggB || (aggLevel && awayA >= awayB))
+    const winnerB =
+      bothDone && aggA !== null && aggB !== null &&
+      (aggB > aggA || (aggLevel && awayB > awayA))
 
     const isMyTie = !!currentUserId && (leg1.player1_id === currentUserId || leg1.player2_id === currentUserId)
     const isOrg   = !!currentUserId && currentUserId === organizerId
@@ -109,8 +127,6 @@ export function HomeAwayBracketView({ rounds, profileMap, currentUserId, organiz
     }
   }
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [atEnd, setAtEnd] = useState(false)
   function handleScroll() {
     const el = scrollRef.current
     if (!el) return

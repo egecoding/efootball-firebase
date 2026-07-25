@@ -53,7 +53,7 @@ export default async function PlayerPortalPage({ params }: PageProps) {
       admin
         .from('rounds')
         .select(
-          'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, tie_id, leg)'
+          'id, tournament_id, round_number, round_name, matches(id, tournament_id, round_id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, winner_id, status, screenshot_url, submitted_by, next_match_id, next_match_slot, played_at, created_at, updated_at, tie_id, leg, disputed, dispute_reason, group_name, bracket)'
         )
         .eq('tournament_id', params.id)
         .order('round_number', { ascending: true }),

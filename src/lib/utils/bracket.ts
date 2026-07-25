@@ -294,11 +294,18 @@ export function generateGroups(participants: BracketParticipant[]): GroupBracket
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
 
-  const groupSize = shuffled.length >= 8 ? 4 : 2
-  const groups: BracketParticipant[][] = []
-  for (let i = 0; i < shuffled.length; i += groupSize) {
-    groups.push(shuffled.slice(i, i + groupSize))
-  }
+  // Deal players round-robin into a fixed number of groups rather than slicing
+  // into fixed-size chunks. Chunking leaves a remainder group — at 5 players it
+  // produced [2,2,1], and that lone player has no opponent, plays zero matches,
+  // never appears in the standings (which are built from match rows) and cannot
+  // advance. Dealing keeps group sizes within one of each other, so every group
+  // has at least 2 players and advancer counts stay balanced.
+  const targetSize = shuffled.length >= 8 ? 4 : 2
+  let numGroups = Math.max(1, Math.floor(shuffled.length / targetSize))
+  while (numGroups > 1 && shuffled.length / numGroups < 2) numGroups--
+
+  const groups: BracketParticipant[][] = Array.from({ length: numGroups }, () => [])
+  shuffled.forEach((p, i) => groups[i % numGroups].push(p))
 
   const groupNames = 'ABCDEFGHIJKLMNOP'.split('')
   let globalMatchNum = 1

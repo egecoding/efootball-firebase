@@ -388,9 +388,12 @@ function TournamentsTab() {
           onChange={(e) => { setStatus(e.target.value); setPage(1) }}
           className="px-3 py-2 bg-gray-900 border border-gray-800 rounded-xl text-sm text-white focus:outline-none focus:border-brand-500"
         >
+          {/* Values must match the tournament_status enum exactly — an unknown
+              value makes Postgres error and the table renders empty with no message. */}
           <option value="">All statuses</option>
           <option value="draft">Draft</option>
-          <option value="active">Active</option>
+          <option value="open">Open</option>
+          <option value="in_progress">In Progress</option>
           <option value="completed">Completed</option>
         </select>
         <button
@@ -589,12 +592,13 @@ function NotificationsTab() {
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
     draft: 'bg-gray-700 text-gray-300',
-    active: 'bg-brand-500/20 text-brand-300',
+    open: 'bg-emerald-500/20 text-emerald-300',
+    in_progress: 'bg-brand-500/20 text-brand-300',
     completed: 'bg-blue-500/20 text-blue-300',
   }
   return (
     <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-medium capitalize ${styles[status] ?? 'bg-gray-700 text-gray-300'}`}>
-      {status}
+      {status.replace(/_/g, ' ')}
     </span>
   )
 }

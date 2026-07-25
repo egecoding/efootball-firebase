@@ -64,12 +64,35 @@ export async function POST(req: Request) {
   return NextResponse.json({ success: true })
 }
 
-// DELETE /api/push/subscribe — unsubscribe by endpoint
+// DELETE /api/push/subscribe — unsubscribe by endpoint.
+// Scoped to the subscription's owner: knowing an endpoint alone must not let a
+// caller silently unsubscribe someone else's device.
 export async function DELETE(req: Request) {
-  const { endpoint } = await req.json().catch(() => ({}))
+  const { endpoint, participantId } = await req.json().catch(() => ({}))
   if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
 
   const admin = createAdminClient()
-  await admin.from('push_subscriptions').delete().eq('endpoint', endpoint)
-  return NextResponse.json({ success: true })
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    await admin
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+      .eq('user_id', user.id)
+    return NextResponse.json({ success: true })
+  }
+
+  if (participantId) {
+    await admin
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+      .eq('participant_id', participantId)
+    return NextResponse.json({ success: true })
+  }
+
+  return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 }

@@ -18,14 +18,18 @@ interface BracketViewProps {
 }
 
 export function BracketView({ rounds, currentUserId, organizerId, profileMap = {} }: BracketViewProps) {
+  // Hooks must run before any early return, or React throws "Rendered more hooks
+  // than during the previous render" the moment `rounds` goes empty → non-empty
+  // in place (e.g. RealtimeRefresh re-rendering this after the organizer starts).
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [atEnd, setAtEnd] = useState(false)
+
   if (!rounds || rounds.length === 0) return null
 
   const sorted = [...rounds].sort((a, b) => a.round_number - b.round_number)
   const totalRounds = sorted.length
   const bracketH    = SLOT * Math.pow(2, totalRounds - 1)
 
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [atEnd, setAtEnd] = useState(false)
   function handleScroll() {
     const el = scrollRef.current
     if (!el) return

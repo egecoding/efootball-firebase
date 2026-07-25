@@ -57,8 +57,21 @@ export async function POST(
     return NextResponse.json({ error: 'Tournament is full' }, { status: 409 })
   }
 
+  // Store a display name for registered users too. Brackets are seeded from
+  // participants, and matches render `player*_name` — leaving it null is why
+  // all-registered tournaments showed "TBD vs TBD" everywhere.
+  let displayName: string | null = null
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('display_name, username')
+      .eq('id', user.id)
+      .single()
+    displayName = profile?.display_name ?? profile?.username ?? null
+  }
+
   const participantRow = user
-    ? { tournament_id: params.id, user_id: user.id }
+    ? { tournament_id: params.id, user_id: user.id, name: displayName }
     : { tournament_id: params.id, user_id: null, name: (name as string).trim() }
 
   const { data: inserted, error: joinError } = await supabase

@@ -20,9 +20,16 @@ export function AnnouncementBanner({ tournamentId, isOrganizer }: AnnouncementBa
   const [posting, setPosting] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/tournaments/${tournamentId}/announcements`)
+    // Guests in a private tournament are identified by the participant id stored
+    // on join; without it the API can't tell them apart from an anonymous visitor.
+    const headers: Record<string, string> = {}
+    const participantId = localStorage.getItem(`participant_${tournamentId}`)
+    if (participantId) headers['X-Participant-Id'] = participantId
+
+    fetch(`/api/tournaments/${tournamentId}/announcements`, { headers })
       .then((r) => r.json())
       .then((d) => { if (Array.isArray(d)) setAnnouncements(d) })
+      .catch(() => { /* banner is non-essential — stay silent */ })
   }, [tournamentId])
 
   async function post() {

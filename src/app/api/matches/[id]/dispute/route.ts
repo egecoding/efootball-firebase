@@ -2,16 +2,21 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { sendPush } from '@/lib/push'
+import { authorizeMatchActor } from '@/lib/match-auth'
+
+// Results can be contested while awaiting confirmation *and* after they're
+// finalized — a high-confidence AI screenshot read finalizes immediately, so
+// completed is often the first state a player ever sees.
+const DISPUTABLE_STATUSES = ['awaiting_confirmation', 'completed', 'walkover']
 
 // POST /api/matches/[id]/dispute
-// Authenticated player: flag a match result as disputed with a reason.
+// Match participant (registered user or guest): flag a result as disputed with a reason.
 export async function POST(
   req: Request,
   { params }: { params: { id: string } }
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
   const { reason } = body
@@ -21,22 +26,25 @@ export async function POST(
 
   const admin = createAdminClient()
 
-  const { data: match, error: matchErr } = await admin
-    .from('matches')
-    .select('id, player1_id, player2_id, status, tournament_id')
-    .eq('id', params.id)
-    .single()
-
-  if (matchErr || !match) {
-    return NextResponse.json({ error: matchErr?.message ?? 'Match not found' }, { status: 404 })
+  const auth = await authorizeMatchActor(
+    admin,
+    params.id,
+    user,
+    req.headers.get('X-Participant-Id')
+  )
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
-  if (match.player1_id !== user.id && match.player2_id !== user.id) {
+  const match = auth.match
+
+  // Only the two players may contest a result — the organizer resolves them instead.
+  if (!auth.actor.isPlayer) {
     return NextResponse.json({ error: 'Only match participants can dispute a result' }, { status: 403 })
   }
 
-  if (match.status !== 'awaiting_confirmation') {
-    return NextResponse.json({ error: 'Only matches awaiting confirmation can be disputed' }, { status: 409 })
+  if (!DISPUTABLE_STATUSES.includes(match.status)) {
+    return NextResponse.json({ error: 'This match has no result to dispute yet' }, { status: 409 })
   }
 
   const { error: updateErr } = await admin

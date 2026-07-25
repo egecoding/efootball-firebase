@@ -6,9 +6,11 @@ import { AlertTriangle } from 'lucide-react'
 
 interface DisputeButtonProps {
   matchId: string
+  /** Guest participants have no session — identifies them to the API instead. */
+  participantId?: string | null
 }
 
-export function DisputeButton({ matchId }: DisputeButtonProps) {
+export function DisputeButton({ matchId, participantId }: DisputeButtonProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState('')
@@ -40,9 +42,12 @@ export function DisputeButton({ matchId }: DisputeButtonProps) {
     if (!reason.trim()) { setError('Please enter a reason.'); return }
     setSubmitting(true)
     setError('')
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (participantId) headers['X-Participant-Id'] = participantId
+
     const res = await fetch(`/api/matches/${matchId}/dispute`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ reason }),
     })
     const data = await res.json()

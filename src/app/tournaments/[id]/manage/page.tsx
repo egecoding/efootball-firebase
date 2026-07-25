@@ -31,6 +31,8 @@ export type ManageMatch = {
   bracket: string | null                    // 'winners' | 'losers' | 'grand_final' | 'league' | 'playoff'
   tie_id: string | null                     // two-legged ties
   leg: number | null                        // 1 or 2
+  disputed: boolean                         // a player flagged this result for review
+  dispute_reason: string | null
 }
 
 export default async function ManageTournamentPage({ params }: PageProps) {
@@ -69,7 +71,7 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       .order('joined_at', { ascending: true }),
     admin
       .from('matches')
-      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, group_name, bracket, tie_id, leg, rounds(round_number, round_name, phase)')
+      .select('id, match_number, player1_id, player1_name, player2_id, player2_name, player1_score, player2_score, status, screenshot_url, ai_score_confidence, group_name, bracket, tie_id, leg, disputed, dispute_reason, rounds(round_number, round_name, phase)')
       .eq('tournament_id', params.id)
       .in('status', ['pending', 'scheduled', 'awaiting_confirmation', 'completed', 'walkover'])
       .order('match_number', { ascending: true }),
@@ -180,6 +182,8 @@ export default async function ManageTournamentPage({ params }: PageProps) {
       bracket: m.bracket ?? null,
       tie_id: m.tie_id ?? null,
       leg: m.leg ?? null,
+      disputed: !!m.disputed,
+      dispute_reason: m.dispute_reason ?? null,
     }
   }))
 

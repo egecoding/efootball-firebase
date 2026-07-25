@@ -190,7 +190,12 @@ export default async function TournamentDetailPage({ params }: PageProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const finalMatch = (sortedRounds[0] as any)?.matches?.find((m: any) => m.status === 'completed' && m.winner_id)
+      // Include walkovers: a final decided by forfeit still has a champion, but
+      // filtering to 'completed' left winnerId null — no crown, and the winner-card
+      // download stayed hidden even though matches.winner_id was populated.
+      const finalMatch = (sortedRounds[0] as any)?.matches?.find(
+        (m: any) => (m.status === 'completed' || m.status === 'walkover') && m.winner_id
+      )
       winnerId = finalMatch?.winner_id ?? null
     } else {
       const standings = calcStandings(completedMatches, tournamentFormat, cardProfileMap)

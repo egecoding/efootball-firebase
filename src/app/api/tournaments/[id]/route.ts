@@ -44,10 +44,24 @@ export async function PATCH(
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
   if ('status' in body && tournament.status !== 'open') {
     return NextResponse.json({ error: 'Cannot change status after tournament has started' }, { status: 409 })
+  }
+
+  // Only the pre-start statuses are settable here. `in_progress` is owned by
+  // /start (which generates the bracket) and `completed` by match finalization —
+  // setting either directly would strand the tournament with no way back, since
+  // /start and /join both require `open`.
+  if ('status' in body && !['draft', 'open'].includes(body.status)) {
+    return NextResponse.json(
+      { error: 'status can only be set to draft or open; use /start to begin the tournament' },
+      { status: 400 }
+    )
   }
 
   const allowed = ['title', 'description', 'status', 'starts_at', 'is_public', 'game_name']

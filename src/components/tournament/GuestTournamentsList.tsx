@@ -49,8 +49,11 @@ export function GuestTournamentsList() {
         try {
           const res = await fetch(`/api/tournaments/${entry.tournamentId}`)
           if (!res.ok) {
-            // Tournament may have been deleted — remove stale entry
-            localStorage.removeItem(`participant_${entry.tournamentId}`)
+            // Do NOT delete the stored participant id here. This endpoint reads
+            // through RLS, so a private tournament always 404s for a guest — and
+            // a transient 5xx looks identical. Dropping the id would destroy the
+            // guest's only credential for a tournament they're still in; just
+            // omit the card instead.
             return null
           }
           const tournament: TournamentInfo = await res.json()

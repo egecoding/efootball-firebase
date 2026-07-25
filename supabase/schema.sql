@@ -74,6 +74,18 @@ RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
   UPDATE public.profiles SET losses = losses + 1 WHERE id = uid;
 $$;
 
+-- Reverse counterparts — used when an organizer corrects an already-completed
+-- match result and the winner changes. Floored at 0 so counts can never go negative.
+CREATE OR REPLACE FUNCTION public.decrement_wins(uid UUID)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  UPDATE public.profiles SET wins = GREATEST(0, wins - 1) WHERE id = uid;
+$$;
+
+CREATE OR REPLACE FUNCTION public.decrement_losses(uid UUID)
+RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  UPDATE public.profiles SET losses = GREATEST(0, losses - 1) WHERE id = uid;
+$$;
+
 -- ============================================================
 -- TOURNAMENTS
 -- ============================================================
@@ -213,6 +225,8 @@ ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS bracket TEXT CHECK (bracket 
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS group_name TEXT;
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS tie_id UUID;    -- two-legged: groups leg1+leg2 of same tie
 ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS leg INTEGER CHECK (leg IN (1, 2));  -- 1 = first leg, 2 = second leg
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS disputed BOOLEAN NOT NULL DEFAULT FALSE;  -- player flagged the result for review
+ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS dispute_reason TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_matches_tournament ON public.matches(tournament_id);
 CREATE INDEX IF NOT EXISTS idx_matches_round      ON public.matches(round_id);
@@ -225,6 +239,28 @@ DROP TRIGGER IF EXISTS matches_updated_at ON public.matches;
 CREATE TRIGGER matches_updated_at
   BEFORE UPDATE ON public.matches
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- ============================================================
+-- MATCH CORRECTIONS (audit trail)
+-- ============================================================
+-- One row per organizer correction of an already-completed match result.
+-- Keeps evidence of what changed (notably when the AI screenshot read was wrong).
+CREATE TABLE IF NOT EXISTS public.match_corrections (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id           UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+  corrected_by       UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  old_player1_score  INTEGER,
+  old_player2_score  INTEGER,
+  old_winner_id      UUID,
+  new_player1_score  INTEGER,
+  new_player2_score  INTEGER,
+  new_winner_id      UUID,
+  reason             TEXT,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_match_corrections_match ON public.match_corrections(match_id);
+GRANT ALL ON public.match_corrections TO service_role;
 
 -- ============================================================
 -- RESULT SUBMISSIONS
@@ -302,6 +338,9 @@ ALTER TABLE public.participants       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rounds             ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.matches            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.result_submissions ENABLE ROW LEVEL SECURITY;
+-- Audit trail: no policies on purpose — only the service-role client (which bypasses
+-- RLS) reads or writes it, so clients get no direct access.
+ALTER TABLE public.match_corrections  ENABLE ROW LEVEL SECURITY;
 
 -- Helper: check tournament visibility WITHOUT going through RLS (SECURITY DEFINER
 -- bypasses RLS so participants_select can call this without causing infinite recursion

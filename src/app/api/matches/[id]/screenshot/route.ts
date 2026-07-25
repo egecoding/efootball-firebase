@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { finalizeMatch } from '@/lib/match-finalize'
+import { authorizeMatchActor } from '@/lib/match-auth'
 
 export async function POST(
   request: Request,
@@ -13,53 +15,21 @@ export async function POST(
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Identify who is uploading
-  let uploaderSlug: string | null = null // used as path prefix in storage
-
   const admin = createAdminClient()
 
-  if (user) {
-    uploaderSlug = user.id
-  } else {
-    // Guest: verify X-Participant-Id
-    const participantId = request.headers.get('X-Participant-Id')
-    if (!participantId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const { data: participant, error: participantErr } = await admin
-      .from('participants')
-      .select('id, name')
-      .eq('id', participantId)
-      .single()
-
-    if (participantErr || !participant) {
-      return NextResponse.json(
-        { error: participantErr?.message ?? 'Unauthorized' },
-        { status: participantErr ? 500 : 401 }
-      )
-    }
-
-    // Verify participant is in this match
-    const { data: match, error: matchErr } = await admin
-      .from('matches')
-      .select('player1_name, player2_name')
-      .eq('id', params.id)
-      .single()
-
-    if (matchErr) {
-      return NextResponse.json({ error: matchErr.message }, { status: 500 })
-    }
-
-    if (
-      !match ||
-      (match.player1_name !== participant.name && match.player2_name !== participant.name)
-    ) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    uploaderSlug = participant.id
+  // This route can auto-finalize a match, so the caller must be verified as
+  // belonging to it — registered users included.
+  const auth = await authorizeMatchActor(
+    admin,
+    params.id,
+    user,
+    request.headers.get('X-Participant-Id')
+  )
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
+
+  const uploaderSlug = auth.actor.slug // used as path prefix in storage
 
   // Parse the multipart body
   const formData = await request.formData()
@@ -143,11 +113,26 @@ Use "low" confidence if the score is not clearly visible, the image is cropped, 
           const { error: updateErr } = await admin.from('matches').update(updates).eq('id', params.id)
           console.log('[screenshot] DB update result:', updateErr ?? 'OK', 'updates:', updates)
           if (!updateErr) {
-            // Invalidate the manage page so the organizer sees the AI badge on next load/refresh
             const { data: matchRow } = await admin.from('matches').select('tournament_id').eq('id', params.id).single()
+
+            // High-confidence read: auto-finalize the match — no organizer click needed.
+            // Silently no-op if it can't finalize yet (already completed, or a draw in a
+            // knockout match) — the score update above still stands either way.
+            if (confidence === 'high') {
+              const finalizeResult = await finalizeMatch(admin, params.id, {
+                player1Score: parsed.player1_score,
+                player2Score: parsed.player2_score,
+                submittedBy: null,
+              })
+              console.log('[screenshot] Auto-finalize result:', finalizeResult)
+            }
+
+            // Invalidate the manage page (AI badge / confirmed status) and the public
+            // tournament page (standings/bracket may have just changed)
             if (matchRow?.tournament_id) {
               revalidatePath(`/tournaments/${matchRow.tournament_id}/manage`)
-              console.log('[screenshot] Revalidated manage page for tournament:', matchRow.tournament_id)
+              revalidatePath(`/tournaments/${matchRow.tournament_id}`)
+              console.log('[screenshot] Revalidated pages for tournament:', matchRow.tournament_id)
             }
           }
         }

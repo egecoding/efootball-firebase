@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { NextResponse } from 'next/server'
 import { sendPush } from '@/lib/push'
+import { finalizeMatch } from '@/lib/match-finalize'
 
 export async function GET(
   _req: Request,
@@ -37,14 +38,22 @@ export async function PATCH(
   // All DB reads/writes use admin client to avoid anon-role RLS issues
   const admin = createAdminClient()
 
-  const body = await request.json()
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body !== 'object') {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
   const { player1_score, player2_score, screenshot_url } = body
 
-  if (typeof player1_score !== 'number' || typeof player2_score !== 'number') {
-    return NextResponse.json({ error: 'Invalid scores' }, { status: 400 })
+  // Goals are whole numbers — 2.5 or 1e9 would otherwise flow straight into
+  // standings and goal-difference aggregation.
+  if (!Number.isInteger(player1_score) || !Number.isInteger(player2_score)) {
+    return NextResponse.json({ error: 'Scores must be whole numbers' }, { status: 400 })
   }
   if (player1_score < 0 || player2_score < 0) {
     return NextResponse.json({ error: 'Scores must be non-negative' }, { status: 400 })
+  }
+  if (player1_score > 99 || player2_score > 99) {
+    return NextResponse.json({ error: 'Scores must be 99 or less' }, { status: 400 })
   }
 
   // Fetch match + tournament format via admin (bypasses RLS for all callers)
@@ -113,7 +122,7 @@ export async function PATCH(
 
     const { data: participant, error: participantErr } = await admin
       .from('participants')
-      .select('id, name')
+      .select('id, name, tournament_id')
       .eq('id', participantId)
       .single()
 
@@ -124,9 +133,13 @@ export async function PATCH(
       )
     }
 
+    // A participant id only grants access within its own tournament, and only to a
+    // GUEST slot — registered players' slots also carry a display name, and nothing
+    // enforces unique nametags, so a same-named guest could otherwise act as them.
     const isGuestInMatch =
-      match.player1_name === participant.name ||
-      match.player2_name === participant.name
+      participant.tournament_id === match.tournament_id &&
+      ((match.player1_id === null && match.player1_name === participant.name) ||
+        (match.player2_id === null && match.player2_name === participant.name))
     if (!isGuestInMatch) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -167,7 +180,16 @@ export async function PATCH(
 
   // If organizer directly submits, bypass two-player flow
   if (isOrganizer && !isPlayer) {
-    return finalizeMatch(admin, match, player1_score, player2_score, screenshot_url, user.id)
+    const result = await finalizeMatch(admin, params.id, {
+      player1Score: player1_score,
+      player2Score: player2_score,
+      submittedBy: user.id,
+      screenshotUrl: screenshot_url ?? null,
+    })
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
+    }
+    return NextResponse.json({ status: 'completed', winner_id: result.winnerId })
   }
 
   // Upsert player submission
@@ -224,6 +246,27 @@ export async function PATCH(
   )
 
   if (!allAgree) {
+    // Persist the conflict. Without this the match row still holds whichever
+    // score was submitted first, and the organizer's manage panel would show it
+    // as a normal pending result — they'd confirm one player's unilateral score
+    // believing both had agreed.
+    const conflict = submissions!
+      .map((s) => `${s.player1_score}-${s.player2_score}`)
+      .join(' vs ')
+    await admin
+      .from('matches')
+      .update({
+        disputed: true,
+        dispute_reason: `Players submitted conflicting scores (${conflict}).`,
+      })
+      .eq('id', params.id)
+
+    sendPush([tournament?.organizer_id], {
+      title: '⚠️ Conflicting results',
+      body: `Players disagree on a score (${conflict}) — needs your decision.`,
+      url: `/tournaments/${match.tournament_id}/manage`,
+    })
+
     return NextResponse.json({
       status: 'disputed',
       message:
@@ -232,73 +275,15 @@ export async function PATCH(
   }
 
   // Finalize with agreed scores
-  return finalizeMatch(
-    admin,
-    match,
-    submissions![0].player1_score,
-    submissions![0].player2_score,
-    screenshot_url,
-    user.id
-  )
-}
-
-async function finalizeMatch(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  supabase: any,
-  match: {
-    id: string
-    player1_id: string | null
-    player1_name?: string | null
-    player2_id: string | null
-    player2_name?: string | null
-    next_match_id: string | null
-    next_match_slot: number | null
-    tournament_id: string
-  },
-  player1_score: number,
-  player2_score: number,
-  screenshot_url: string | null,
-  submittedBy: string
-) {
-  const isDraw = player1_score === player2_score
-  const winner_id = isDraw ? null
-    : player1_score > player2_score ? match.player1_id : match.player2_id
-  const loser_id = isDraw ? null
-    : player1_score > player2_score ? match.player2_id : match.player1_id
-
-  await supabase
-    .from('matches')
-    .update({
-      player1_score,
-      player2_score,
-      winner_id,
-      status: 'completed',
-      screenshot_url: screenshot_url ?? null,
-      submitted_by: submittedBy,
-      played_at: new Date().toISOString(),
-    })
-    .eq('id', match.id)
-
-  // Atomic win/loss increment (only for registered users, not draws)
-  if (winner_id) await supabase.rpc('increment_wins', { uid: winner_id })
-  if (loser_id) await supabase.rpc('increment_losses', { uid: loser_id })
-
-  // Advance winner to next match (handle guest players too)
-  if (match.next_match_id && match.next_match_slot) {
-    const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
-    const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
-    const winnerName = player1_score > player2_score ? match.player1_name : match.player2_name
-    await supabase
-      .from('matches')
-      .update({ [idField]: winner_id ?? null, [nameField]: winnerName ?? null, status: 'scheduled' })
-      .eq('id', match.next_match_id)
-  } else if (!match.next_match_id) {
-    // No next match = this was the final
-    await supabase
-      .from('tournaments')
-      .update({ status: 'completed' })
-      .eq('id', match.tournament_id)
+  const result = await finalizeMatch(admin, params.id, {
+    player1Score: submissions![0].player1_score,
+    player2Score: submissions![0].player2_score,
+    submittedBy: user.id,
+    screenshotUrl: screenshot_url ?? null,
+  })
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status })
   }
-
-  return NextResponse.json({ status: 'completed', winner_id })
+  return NextResponse.json({ status: 'completed', winner_id: result.winnerId })
 }
+

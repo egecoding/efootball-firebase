@@ -34,9 +34,27 @@ export async function POST(
   if (!participants || participants.length < 2)
     return NextResponse.json({ error: 'Need at least 2 participants to start' }, { status: 409 })
 
+  // Participants who joined before display names were stored still have a null
+  // name; resolve those from their profile so the bracket doesn't render "TBD".
+  const missingNameUserIds = participants
+    .filter((p) => p.user_id && !p.name)
+    .map((p) => p.user_id as string)
+
+  const nameByUserId = new Map<string, string>()
+  if (missingNameUserIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, display_name, username')
+      .in('id', missingNameUserIds)
+    for (const prof of profiles ?? []) {
+      const resolved = prof.display_name ?? prof.username
+      if (resolved) nameByUserId.set(prof.id as string, resolved as string)
+    }
+  }
+
   const bracketParticipants = participants.map((p) => ({
     id: p.user_id ?? null,
-    name: p.name ?? null,
+    name: p.name ?? (p.user_id ? nameByUserId.get(p.user_id) ?? null : null),
     participantId: p.id,
   }))
 
@@ -118,7 +136,8 @@ async function startKnockout(
     }
   }
 
-  for (const match of insertedMatches) {
+  // Read back so next_match_id (wired above) is present — see reloadMatches.
+  for (const match of await reloadMatches(supabase, tournamentId)) {
     const hasP1 = match.player1_id !== null || match.player1_name !== null
     const hasP2 = match.player2_id !== null || match.player2_name !== null
     if ((hasP1 && !hasP2) || (!hasP1 && hasP2)) {
@@ -129,11 +148,13 @@ async function startKnockout(
         const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
         const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
         await supabase.from('matches')
-          .update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' })
+          .update({ [idField]: winner_id, [nameField]: winner_name })
           .eq('id', match.next_match_id)
       }
     }
   }
+
+  await scheduleReadyMatches(supabase, tournamentId)
 
   await supabase.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId)
   for (let i = 0; i < bracketParticipants.length; i++) {
@@ -327,8 +348,9 @@ async function startDoubleElimination(
     }
   }
 
-  // Handle walkovers (byes) — advance winner, do NOT route bye to LB
-  for (const match of insertedMatches) {
+  // Handle walkovers (byes) — advance winner, do NOT route bye to LB.
+  // Read back so next_match_id (wired above) is present — see reloadMatches.
+  for (const match of await reloadMatches(supabase, tournamentId)) {
     const hasP1 = match.player1_id !== null || match.player1_name !== null
     const hasP2 = match.player2_id !== null || match.player2_name !== null
     if ((hasP1 && !hasP2) || (!hasP1 && hasP2)) {
@@ -339,12 +361,14 @@ async function startDoubleElimination(
         const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
         const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
         await supabase.from('matches')
-          .update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' })
+          .update({ [idField]: winner_id, [nameField]: winner_name })
           .eq('id', match.next_match_id)
       }
       // Note: do NOT advance null/bye to loser_next_match_id
     }
   }
+
+  await scheduleReadyMatches(supabase, tournamentId)
 
   await supabase.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId)
   for (let i = 0; i < bracketParticipants.length; i++) {
@@ -522,7 +546,8 @@ async function startHomeAwayKnockout(
     }
   }
 
-  for (const match of insertedMatches) {
+  // Read back so next_match_id (wired above) is present — see reloadMatches.
+  for (const match of await reloadMatches(supabase, tournamentId)) {
     const hasP1 = match.player1_id !== null || match.player1_name !== null
     const hasP2 = match.player2_id !== null || match.player2_name !== null
     if ((hasP1 && !hasP2) || (!hasP1 && hasP2)) {
@@ -540,17 +565,19 @@ async function startHomeAwayKnockout(
           if (leg2.next_match_id && leg2.next_match_slot) {
             const idField = leg2.next_match_slot === 1 ? 'player1_id' : 'player2_id'
             const nameField = leg2.next_match_slot === 1 ? 'player1_name' : 'player2_name'
-            await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' }).eq('id', leg2.next_match_id)
+            await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name }).eq('id', leg2.next_match_id)
           }
         }
       }
       if (!match.leg && match.next_match_id && match.next_match_slot) {
         const idField = match.next_match_slot === 1 ? 'player1_id' : 'player2_id'
         const nameField = match.next_match_slot === 1 ? 'player1_name' : 'player2_name'
-        await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name, status: 'scheduled' }).eq('id', match.next_match_id)
+        await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name }).eq('id', match.next_match_id)
       }
     }
   }
+
+  await scheduleReadyMatches(supabase, tournamentId)
 
   await supabase.from('tournaments').update({ status: 'in_progress' }).eq('id', tournamentId)
   for (let i = 0; i < bracketParticipants.length; i++) {
@@ -564,4 +591,59 @@ function determineStatus(hasP1: boolean, hasP2: boolean): 'pending' | 'scheduled
   if (!hasP1 && !hasP2) return 'pending'
   if (!hasP1 || !hasP2) return 'walkover'
   return 'scheduled'
+}
+
+interface LoadedMatch {
+  id: string
+  match_number: number
+  player1_id: string | null
+  player1_name: string | null
+  player2_id: string | null
+  player2_name: string | null
+  next_match_id: string | null
+  next_match_slot: number | null
+  leg: number | null
+  status: string
+}
+
+/**
+ * Re-reads this tournament's matches from the database.
+ *
+ * Bye handling must NOT use the array returned by `.insert().select()`: that
+ * snapshot is taken before `next_match_id` is wired up by the UPDATE loop that
+ * follows, so every row still has `next_match_id = null` and bye winners are
+ * silently never advanced — deadlocking any non-power-of-2 bracket.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function reloadMatches(supabase: any, tournamentId: string): Promise<LoadedMatch[]> {
+  const { data } = await supabase
+    .from('matches')
+    .select('id, match_number, player1_id, player1_name, player2_id, player2_name, next_match_id, next_match_slot, leg, status')
+    .eq('tournament_id', tournamentId)
+  return (data ?? []) as LoadedMatch[]
+}
+
+/**
+ * Opens every still-`pending` match whose two slots are now both filled.
+ *
+ * Byes can populate a downstream slot one at a time, so advancement sites must
+ * not mark the next match `scheduled` themselves — doing so exposes a playable
+ * match with an empty slot, which a player can then win by submitting a result
+ * against nobody. Run this once after all byes are resolved instead.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function scheduleReadyMatches(supabase: any, tournamentId: string) {
+  const { data } = await supabase
+    .from('matches')
+    .select('id, player1_id, player1_name, player2_id, player2_name')
+    .eq('tournament_id', tournamentId)
+    .eq('status', 'pending')
+
+  for (const m of (data ?? []) as LoadedMatch[]) {
+    const hasP1 = m.player1_id !== null || m.player1_name !== null
+    const hasP2 = m.player2_id !== null || m.player2_name !== null
+    if (hasP1 && hasP2) {
+      await supabase.from('matches').update({ status: 'scheduled' }).eq('id', m.id)
+    }
+  }
 }

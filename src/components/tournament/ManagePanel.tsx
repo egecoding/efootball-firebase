@@ -52,6 +52,12 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
   const [walkoverSubmitting, setWalkoverSubmitting] = useState(false)
   const [walkoverError, setWalkoverError] = useState('')
 
+  // Per-match correction state (already-completed matches)
+  const [correctingId, setCorrectingId] = useState<string | null>(null)
+  const [correctScores, setCorrectScores] = useState<Record<string, { p1: string; p2: string; reason: string }>>({})
+  const [correctErrors, setCorrectErrors] = useState<Record<string, string>>({})
+  const [submittingCorrectId, setSubmittingCorrectId] = useState<string | null>(null)
+
   const isFull = participants.length >= tournament.max_participants
 
   async function addPlayer() {
@@ -183,6 +189,31 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
       return
     }
     setWalkoverMatchId(null)
+    router.refresh()
+  }
+
+  async function correctResult(matchId: string) {
+    const scores = correctScores[matchId]
+    const p1 = parseInt(scores?.p1 ?? '', 10)
+    const p2 = parseInt(scores?.p2 ?? '', 10)
+    if (isNaN(p1) || isNaN(p2) || p1 < 0 || p2 < 0) {
+      setCorrectErrors((prev) => ({ ...prev, [matchId]: 'Enter valid non-negative scores.' }))
+      return
+    }
+    setCorrectErrors((prev) => ({ ...prev, [matchId]: '' }))
+    setSubmittingCorrectId(matchId)
+    const res = await fetch(`/api/matches/${matchId}/correct`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ player1_score: p1, player2_score: p2, reason: scores?.reason ?? '' }),
+    })
+    const data = await res.json()
+    setSubmittingCorrectId(null)
+    if (!res.ok) {
+      setCorrectErrors((prev) => ({ ...prev, [matchId]: data.error }))
+      return
+    }
+    setCorrectingId(null)
     router.refresh()
   }
 
@@ -452,6 +483,10 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
               const isSubmittingManual = submittingManualId === m.id
               const manualError = manualErrors[m.id]
               const hasPlayers = (m.player1_id ?? m.player1_name) !== null && (m.player2_id ?? m.player2_name) !== null
+              const isFinalized = m.status === 'completed' || m.status === 'walkover'
+              const isCorrecting = correctingId === m.id
+              const isSubmittingCorrect = submittingCorrectId === m.id
+              const correctError = correctErrors[m.id]
 
               return (
                 <div
@@ -490,6 +525,20 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                       </Link>
                     </div>
                   </div>
+
+                  {/* Player flagged this result for review */}
+                  {m.disputed && (
+                    <div className="rounded-lg border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-3 py-2">
+                      <p className="text-xs font-semibold text-red-700 dark:text-red-400">
+                        ⚠ Disputed by a player
+                      </p>
+                      {m.dispute_reason && (
+                        <p className="text-xs text-red-600 dark:text-red-300 mt-0.5 break-words">
+                          &ldquo;{m.dispute_reason}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Finalized screenshot */}
                   {m.screenshotSignedUrl && (
@@ -667,6 +716,90 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
                             <button
                               onClick={() => setEnteringId(null)}
                               disabled={isSubmittingManual}
+                              className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-2"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Correct an already-finalized result (e.g. the AI misread the screenshot) */}
+                  {isFinalized && (
+                    <div className="flex flex-col gap-2">
+                      {!isCorrecting && (
+                        <button
+                          onClick={() => {
+                            setCorrectingId(m.id)
+                            setCorrectScores((prev) => ({
+                              ...prev,
+                              [m.id]: prev[m.id] ?? {
+                                p1: m.player1_score !== null ? String(m.player1_score) : '',
+                                p2: m.player2_score !== null ? String(m.player2_score) : '',
+                                reason: '',
+                              },
+                            }))
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 transition-colors w-fit"
+                        >
+                          <ClipboardEdit className="h-3.5 w-3.5" />
+                          Correct result
+                        </button>
+                      )}
+
+                      {isCorrecting && (
+                        <div className="rounded-lg border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-3 flex flex-col gap-3">
+                          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Correct Result</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">{p1}</p>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="99"
+                                placeholder="0"
+                                value={correctScores[m.id]?.p1 ?? ''}
+                                onChange={(e) => setCorrectScores((prev) => ({ ...prev, [m.id]: { ...prev[m.id], p1: e.target.value } }))}
+                                className="text-center font-bold"
+                              />
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1 truncate">{p2}</p>
+                              <Input
+                                type="number"
+                                min="0"
+                                max="99"
+                                placeholder="0"
+                                value={correctScores[m.id]?.p2 ?? ''}
+                                onChange={(e) => setCorrectScores((prev) => ({ ...prev, [m.id]: { ...prev[m.id], p2: e.target.value } }))}
+                                className="text-center font-bold"
+                              />
+                            </div>
+                          </div>
+                          <Input
+                            type="text"
+                            placeholder="Reason (optional) — e.g. AI misread the score"
+                            value={correctScores[m.id]?.reason ?? ''}
+                            onChange={(e) => setCorrectScores((prev) => ({ ...prev, [m.id]: { ...prev[m.id], reason: e.target.value } }))}
+                            className="text-xs"
+                          />
+                          {correctError && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{correctError}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => correctResult(m.id)}
+                              disabled={isSubmittingCorrect}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 disabled:opacity-60 px-3 py-1.5 text-xs font-semibold text-white transition-colors"
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              {isSubmittingCorrect ? 'Saving…' : 'Save Correction'}
+                            </button>
+                            <button
+                              onClick={() => setCorrectingId(null)}
+                              disabled={isSubmittingCorrect}
                               className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 px-2"
                             >
                               Cancel

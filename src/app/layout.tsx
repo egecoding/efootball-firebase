@@ -75,7 +75,7 @@ export default async function RootLayout({
           <Footer />
           <WhatsAppButton />
           <InstallPrompt />
-          <PushPrompt />
+          <PushPrompt enabled={!!user} />
         </ThemeProvider>
         <Analytics />
       </body>

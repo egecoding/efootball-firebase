@@ -45,10 +45,11 @@ export async function GET(
     const sortedRounds = [...(rounds ?? [])].sort((a: any, b: any) => b.round_number - a.round_number)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const finalRound = sortedRounds[0] as any
-    // Find completed final match — winner_id may be null for guest players
+    // Find the decided final — winner_id may be null for guest players, and a
+    // final settled by forfeit has status 'walkover' rather than 'completed'.
     const finalMatch = (finalRound?.matches ?? []).find(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (m: any) => m.status === 'completed'
+      (m: any) => m.status === 'completed' || m.status === 'walkover'
     ) as (MatchRow & { winner_id?: string | null }) | undefined
 
     if (finalMatch?.winner_id) {

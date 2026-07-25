@@ -12,6 +12,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'key and matchId required' }, { status: 400 })
   }
 
+  // `key` is interpolated into a storage path below — constrain it to the UUID
+  // shape this route issues, so it can't be used to reach outside share-temp/.
+  if (!/^[0-9a-f-]{36}$/.test(key)) {
+    return NextResponse.json({ error: 'Invalid key' }, { status: 400 })
+  }
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -87,6 +87,28 @@ export async function POST(
   for (const m of leagueMatches) {
     const s1 = m.player1_score ?? 0
     const s2 = m.player2_score ?? 0
+    const p1Exists = m.player1_id !== null || m.player1_name !== null
+    const p2Exists = m.player2_id !== null || m.player2_name !== null
+
+    if (!p1Exists && !p2Exists) continue
+
+    // Bye (odd player count): only one side is real. Credit that player, but do
+    // NOT create a standings row for the empty slot — getOrCreate(null, null)
+    // keys to '' and produces a phantom entry that outranks real players, gets
+    // drawn into the playoff band, and yields a match nobody can ever play.
+    if (p1Exists !== p2Exists) {
+      const solo = p1Exists
+        ? getOrCreate(m.player1_id, m.player1_name)
+        : getOrCreate(m.player2_id, m.player2_name)
+      const soloScore = p1Exists ? s1 : s2
+      const oppScore = p1Exists ? s2 : s1
+
+      solo.played++
+      solo.gf += soloScore; solo.ga += oppScore; solo.gd = solo.gf - solo.ga
+      solo.pts += 3; solo.wins++
+      continue
+    }
+
     const p1 = getOrCreate(m.player1_id, m.player1_name)
     const p2 = getOrCreate(m.player2_id, m.player2_name)
 
@@ -130,8 +152,12 @@ export async function POST(
   // Seeded: 5th vs 12th, 6th vs 11th, 7th vs 10th, 8th vs 9th
   // (highest seed vs lowest seed within playoff band)
   const playoffPairs: { p1: CLStanding; p2: CLStanding }[] = []
-  const pc = playoffCandidates
-  for (let i = 0; i < Math.floor(pc.length / 2); i++) {
+  // Pair within an EVEN band. If the band is odd, the lowest-ranked team drops out
+  // rather than the middle one silently vanishing: pairing i with (len-1-i) over
+  // floor(len/2) iterations never touches pc[mid], so that team was neither
+  // qualified, paired, nor reported as eliminated.
+  const pc = playoffCandidates.slice(0, playoffCandidates.length - (playoffCandidates.length % 2))
+  for (let i = 0; i < pc.length / 2; i++) {
     playoffPairs.push({ p1: pc[i], p2: pc[pc.length - 1 - i] })
   }
 
@@ -238,13 +264,19 @@ export async function POST(
     (m.player2_id === null && m.player2_name === null)
   )
 
-  // Wire each playoff match → its target KO slot
-  for (let i = 0; i < playoffMatchIds.length && i < pendingKOSlots.length; i++) {
+  // Wire each playoff match → its target KO slot, pairing them in OPPOSITE order.
+  // pendingKOSlots is in bracket-seed order (index 0 holds the #1 seed) while
+  // playoffMatchIds[0] is the strongest playoff pair (5th vs 12th). Zipping them
+  // index-for-index rewarded the top seed with the hardest possible opponent —
+  // the weakest playoff winner should face the #1 seed instead.
+  const pairCount = Math.min(playoffMatchIds.length, pendingKOSlots.length)
+  for (let i = 0; i < pairCount; i++) {
     const koMatch = pendingKOSlots[i]
+    const playoffId = playoffMatchIds[pairCount - 1 - i]
     const slot = koMatch.player1_id === null && koMatch.player1_name === null ? 1 : 2
     await admin.from('matches')
       .update({ next_match_id: koMatch.id, next_match_slot: slot })
-      .eq('id', playoffMatchIds[i])
+      .eq('id', playoffId)
   }
 
   return NextResponse.json({
@@ -252,6 +284,6 @@ export async function POST(
     autoQualified: autoTeams.length,
     playoffMatches: playoffMatchIds.length,
     knockoutMatches: koMatches.length,
-    eliminated: sorted.length - autoTeams.length - playoffCandidates.length,
+    eliminated: sorted.length - autoTeams.length - pc.length,
   })
 }

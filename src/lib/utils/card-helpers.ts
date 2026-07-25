@@ -60,7 +60,9 @@ export function calcStandings(
     r2.gf += p2s; r2.gd += p2s - p1s
     if (p1s > p2s)      { r1.pts += 3 }
     else if (p2s > p1s) { r2.pts += 3 }
-    else { r1.pts += format === 'league' ? 1 : 0; r2.pts += format === 'league' ? 1 : 0 }
+    // A draw is a point in every league-style format (round_robin included), which
+    // is what advance-knockout uses to decide who progresses.
+    else { r1.pts += 1; r2.pts += 1 }
   }
 
   return Array.from(rows.values()).sort((a, b) =>

@@ -16,8 +16,20 @@ export async function POST(req: Request) {
     return NextResponse.redirect(new URL('/share?error=nofile', req.url))
   }
 
+  // This endpoint can't require a session: it's POSTed by the OS share sheet, and
+  // guests authenticate with a localStorage id the share sheet can't send. So the
+  // upload stays open — but bound it tightly to real, small images to limit abuse.
+  const MAX_BYTES = 10 * 1024 * 1024 // 10 MB
+
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
-  const mimeType = allowedTypes.includes(file.type) ? file.type : 'image/jpeg'
+  if (!allowedTypes.includes(file.type)) {
+    return NextResponse.redirect(new URL('/share?error=filetype', req.url))
+  }
+  if (file.size > MAX_BYTES) {
+    return NextResponse.redirect(new URL('/share?error=toolarge', req.url))
+  }
+
+  const mimeType = file.type
   const ext = mimeType.split('/')[1]
   const key = randomUUID()
   const path = `share-temp/${key}.${ext}`

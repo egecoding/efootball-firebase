@@ -5,8 +5,58 @@ import { checkSuperAdmin } from '@/lib/admin-guard'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const admin = createAdminClient()
+
+  // This route reads with the service-role client, which bypasses RLS — so it has
+  // to enforce visibility itself, or a private tournament's announcements are
+  // readable by anyone who knows the tournament id.
+  const { data: tournament } = await admin
+    .from('tournaments')
+    .select('organizer_id, is_public')
+    .eq('id', params.id)
+    .single()
+
+  if (!tournament) {
+    return NextResponse.json({ error: 'Tournament not found' }, { status: 404 })
+  }
+
+  if (!tournament.is_public) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    let allowed = false
+
+    if (user) {
+      allowed = tournament.organizer_id === user.id
+      if (!allowed) {
+        const { data: membership } = await admin
+          .from('participants')
+          .select('id')
+          .eq('tournament_id', params.id)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        allowed = !!membership || (await checkSuperAdmin(user.id))
+      }
+    } else {
+      // Guests identify with the participant id they were issued on join.
+      const participantId = req.headers.get('X-Participant-Id')
+      if (participantId) {
+        const { data: participant } = await admin
+          .from('participants')
+          .select('id')
+          .eq('id', participantId)
+          .eq('tournament_id', params.id)
+          .maybeSingle()
+        allowed = !!participant
+      }
+    }
+
+    if (!allowed) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
+
   const { data, error } = await admin
     .from('tournament_announcements')
     .select('id, message, created_at')

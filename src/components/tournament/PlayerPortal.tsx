@@ -20,6 +20,7 @@ import { ParticipantList } from '@/components/tournament/ParticipantList'
 import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons'
 import { TopScorersTable } from '@/components/tournament/TopScorersTable'
 import { PredictionBar } from '@/components/match/PredictionBar'
+import { DisputeButton } from '@/components/match/DisputeButton'
 import { calcTopScorer } from '@/lib/utils/card-helpers'
 import type {
   TournamentWithOrganizer,
@@ -220,6 +221,51 @@ export function PlayerPortal({
 
   // Determine winner and top scorer for completed tournaments
   const completedMatches = allMatches.filter((m) => (m as unknown as { status: string }).status === 'completed')
+
+  // Split matches into the tables that should be shown separately. Rendering one
+  // table over every match merged all groups of a group-stage cup into a single
+  // ranking, and mixed CL playoff/knockout results into the league standings.
+  type GroupedMatch = { group_name?: string | null; bracket?: string | null; status: string }
+  const standingsGroups: { label: string | null; matches: typeof allMatches }[] = (() => {
+    const typed = allMatches as unknown as GroupedMatch[]
+
+    if (format === 'group_knockout') {
+      const byGroup = new Map<string, typeof allMatches>()
+      typed.forEach((m, i) => {
+        if (!m.group_name) return
+        const bucket = byGroup.get(m.group_name) ?? []
+        bucket.push(allMatches[i])
+        byGroup.set(m.group_name, bucket)
+      })
+      if (byGroup.size > 0) {
+        return Array.from(byGroup.entries())
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([label, matches]) => ({ label, matches }))
+      }
+    }
+
+    if (format === 'champions_league') {
+      const league = allMatches.filter((_, i) => typed[i].bracket === 'league')
+      if (league.length > 0) return [{ label: null, matches: league }]
+    }
+
+    return [{ label: null, matches: allMatches }]
+  })()
+
+  // This player's own finalized matches — they can contest these (a high-confidence
+  // AI screenshot read finalizes without organizer review, so mistakes can slip through)
+  type FinalizedMatch = {
+    id: string; status: string
+    player1_id: string | null; player1_name: string | null
+    player2_id: string | null; player2_name: string | null
+    player1_score: number | null; player2_score: number | null
+    disputed?: boolean | null
+  }
+  const myFinalizedMatches = (allMatches as unknown as FinalizedMatch[]).filter((m) => {
+    const byUserId = currentUserId && (m.player1_id === currentUserId || m.player2_id === currentUserId)
+    const byName = myName && (m.player1_name === myName || m.player2_name === myName)
+    return (byUserId || byName) && (m.status === 'completed' || m.status === 'walkover')
+  })
   const cardProfileMap = new Map(
     Object.entries(profileMap).map(([uid, p]) => [uid, { display_name: p.display_name, username: p.username, avatar_url: p.avatar_url }])
   )
@@ -522,7 +568,11 @@ export function PlayerPortal({
               <HomeAwayBracketView
                 rounds={rounds}
                 profileMap={profileMap}
-                currentUserId={participantId ? undefined : currentUserId ?? undefined}
+                // participantId is set for logged-in users too (the portal page
+                // resolves it), so blanking currentUserId whenever it exists hid
+                // the leg links and "your tie" highlight from every registered
+                // player — while ScheduleView below still got the real id.
+                currentUserId={currentUserId ?? undefined}
                 organizerId={tournament.organizer_id}
               />
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mt-8 mb-4">Schedule</h2>
@@ -539,11 +589,21 @@ export function PlayerPortal({
               {allMatches.some((m) => m.status === 'completed') && (
                 <div className="mb-8">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Standings</h2>
-                  <StandingsTable
-                    matches={allMatches}
-                    participants={participants}
-                    format={format as 'round_robin' | 'league'}
-                  />
+                  {standingsGroups.map((g) => (
+                    <div key={g.label ?? 'all'} className="mb-6 last:mb-0">
+                      {g.label && (
+                        <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                          Group {g.label}
+                        </h3>
+                      )}
+                      <StandingsTable
+                        matches={g.matches}
+                        participants={participants}
+                        format={format === 'champions_league' ? 'league' : 'round_robin'}
+                        groupName={g.label ?? undefined}
+                      />
+                    </div>
+                  ))}
                 </div>
               )}
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Schedule</h2>
@@ -556,6 +616,40 @@ export function PlayerPortal({
               />
             </>
           )}
+        </div>
+      )}
+
+      {/* Your results — contest anything that looks wrong */}
+      {myFinalizedMatches.length > 0 && (
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Your Results</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+            Spot a wrong score? Flag it and the organizer can correct it.
+          </p>
+          <div className="flex flex-col gap-3">
+            {myFinalizedMatches.map((m) => (
+              <div
+                key={m.id}
+                className="rounded-lg border border-gray-200 dark:border-gray-800 p-3 flex flex-col gap-2"
+              >
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {m.player1_name ?? 'Player 1'} vs {m.player2_name ?? 'Player 2'}
+                  {m.player1_score !== null && m.player2_score !== null && (
+                    <span className="ml-2 font-bold text-brand-500">
+                      {m.player1_score} – {m.player2_score}
+                    </span>
+                  )}
+                </p>
+                {m.disputed ? (
+                  <p className="text-xs text-orange-600 dark:text-orange-400">
+                    ⚠ Disputed — the organizer has been notified.
+                  </p>
+                ) : (
+                  <DisputeButton matchId={m.id} participantId={currentUserId ? null : participantId} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
