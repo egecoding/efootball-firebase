@@ -20,7 +20,7 @@ export type ManageMatch = {
   player2_score: number | null
   status: string
   screenshot_url: string | null
-  ai_score_confidence: string | null        // 'high' | 'low' | null — set by Gemini after screenshot upload
+  ai_score_confidence: string | null        // 'high' | 'low' | null — set from client-side OCR (Tesseract.js) after screenshot upload
   screenshotSignedUrl: string | null        // from finalized match row
   submissionScreenshotSignedUrl: string | null // from result_submissions (pre-finalization)
   submittedByName: string | null            // who submitted the pending screenshot

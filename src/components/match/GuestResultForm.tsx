@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Upload, ImagePlus, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
+import { useScreenshotScore } from '@/hooks/useScreenshotScore'
 
 interface GuestResultFormProps {
   matchId: string
@@ -38,12 +39,16 @@ export function GuestResultForm({
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // Screenshot
-  const [screenshotPath, setScreenshotPath] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'scanning' | 'done' | 'error'>('idle')
-  const [uploadFileName, setUploadFileName] = useState('')
-  const [aiNotice, setAiNotice] = useState<{ type: 'high' | 'low' | 'auto_finalized'; text: string } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  // Screenshot — read client-side with Tesseract.js (free, no external API)
+  const { uploadStatus, uploadFileName, screenshotPath, aiNotice, fileRef, handleFile, clear } = useScreenshotScore({
+    matchId,
+    participantId,
+    currentUserId: null,
+    onScoreDetected: (p1, p2) => {
+      setP1Score(String(p1))
+      setP2Score(String(p2))
+    },
+  })
 
   useEffect(() => {
     const pid = localStorage.getItem(`participant_${tournamentId}`)
@@ -71,81 +76,6 @@ export function GuestResultForm({
   }
 
   if (status !== 'scheduled') return null
-
-  async function handleScreenshot(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploadStatus('uploading')
-    setUploadFileName(file.name)
-    setAiNotice(null)
-
-    const form = new FormData()
-    form.append('file', file)
-
-    // The upload itself is quick — most of the wait is Gemini reading the image
-    // server-side. Flip the label after a moment so it's visible that the AI is
-    // actually doing something, rather than "Uploading…" sitting for 5+ seconds.
-    let settled = false
-    const scanningTimer = setTimeout(() => {
-      if (!settled) setUploadStatus('scanning')
-    }, 700)
-
-    const res = await fetch(`/api/matches/${matchId}/screenshot`, {
-      method: 'POST',
-      headers: { 'X-Participant-Id': participantId! },
-      body: form,
-    })
-    settled = true
-    clearTimeout(scanningTimer)
-
-    if (!res.ok) {
-      setUploadStatus('error')
-      return
-    }
-
-    const data = await res.json()
-    setUploadStatus('done')
-    setScreenshotPath(data.path)
-
-    const ai = data.ai as
-      | { status: 'read'; confidence: 'high' | 'low'; player1_score: number; player2_score: number; autoFinalized: boolean }
-      | { status: 'timeout' | 'no_key' | 'unparsable' | 'error' }
-      | undefined
-
-    if (ai?.status === 'read') {
-      if (ai.confidence === 'high') {
-        setP1Score(String(ai.player1_score))
-        setP2Score(String(ai.player2_score))
-        if (ai.autoFinalized) {
-          setAiNotice({
-            type: 'auto_finalized',
-            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — the result has been confirmed automatically!`,
-          })
-          router.refresh()
-        } else {
-          setAiNotice({
-            type: 'high',
-            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — prefilled below. Double-check it and submit.`,
-          })
-        }
-      } else {
-        setAiNotice({
-          type: 'low',
-          text: '🤖 AI scanned the screenshot but wasn’t confident in the score — please enter it manually below.',
-        })
-      }
-    } else if (ai?.status === 'timeout') {
-      setAiNotice({ type: 'low', text: '🤖 AI scan took too long to finish — please enter the score manually below.' })
-    }
-  }
-
-  function clearScreenshot() {
-    setUploadStatus('idle')
-    setUploadFileName('')
-    setScreenshotPath(null)
-    setAiNotice(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -235,7 +165,7 @@ export function GuestResultForm({
             ref={fileRef}
             type="file"
             accept="image/jpeg,image/png,image/webp"
-            onChange={handleScreenshot}
+            onChange={handleFile}
             className="hidden"
             id="guest-screenshot-upload"
           />
@@ -265,7 +195,7 @@ export function GuestResultForm({
             <div className="flex items-center gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3">
               <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
               <span className="flex-1 text-sm text-green-700 dark:text-green-400 truncate">{uploadFileName}</span>
-              <button type="button" onClick={clearScreenshot} className="text-green-600 hover:text-red-500 transition-colors">
+              <button type="button" onClick={clear} className="text-green-600 hover:text-red-500 transition-colors">
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -273,7 +203,7 @@ export function GuestResultForm({
           {uploadStatus === 'error' && (
             <div className="flex items-center gap-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3">
               <span className="flex-1 text-sm text-red-700 dark:text-red-400">Upload failed — try again.</span>
-              <button type="button" onClick={clearScreenshot} className="text-red-400">
+              <button type="button" onClick={clear} className="text-red-400">
                 <X className="h-4 w-4" />
               </button>
             </div>

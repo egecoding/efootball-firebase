@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -21,6 +21,7 @@ import { CardDownloadButtons } from '@/components/tournament/CardDownloadButtons
 import { TopScorersTable } from '@/components/tournament/TopScorersTable'
 import { PredictionBar } from '@/components/match/PredictionBar'
 import { DisputeButton } from '@/components/match/DisputeButton'
+import { useScreenshotScore } from '@/hooks/useScreenshotScore'
 import { calcTopScorer } from '@/lib/utils/card-helpers'
 import type {
   TournamentWithOrganizer,
@@ -75,12 +76,16 @@ export function PlayerPortal({
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null)
 
-  // Screenshot state
-  const [screenshotPath, setScreenshotPath] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'scanning' | 'done' | 'error'>('idle')
-  const [uploadFileName, setUploadFileName] = useState('')
-  const [aiNotice, setAiNotice] = useState<{ type: 'high' | 'low' | 'auto_finalized'; text: string } | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
+  // Screenshot state — read client-side with Tesseract.js (free, no external API)
+  const { uploadStatus, uploadFileName, screenshotPath, aiNotice, fileRef, handleFile, clear: clearScreenshot } = useScreenshotScore({
+    matchId: myMatch?.id ?? null,
+    participantId,
+    currentUserId,
+    onScoreDetected: (p1, p2) => {
+      setP1Score(String(p1))
+      setP2Score(String(p2))
+    },
+  })
 
   useEffect(() => {
     let pid = participantId
@@ -120,89 +125,6 @@ export function PlayerPortal({
     }) ?? null
     setMyMatch(active)
   }, [participantId, participants, rounds, currentUserId, tournamentId])
-
-  async function handleScreenshotUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !myMatch) return
-
-    setUploadStatus('uploading')
-    setUploadFileName(file.name)
-    setScreenshotPath(null)
-    setAiNotice(null)
-
-    const form = new FormData()
-    form.append('file', file)
-
-    const headers: Record<string, string> = {}
-    if (!currentUserId && participantId) {
-      headers['X-Participant-Id'] = participantId
-    }
-
-    // The upload itself is quick — most of the wait is Gemini reading the image
-    // server-side. Flip the label after a moment so it's visible that the AI is
-    // actually doing something, rather than "Uploading…" sitting for 5+ seconds.
-    let settled = false
-    const scanningTimer = setTimeout(() => {
-      if (!settled) setUploadStatus('scanning')
-    }, 700)
-
-    const res = await fetch(`/api/matches/${myMatch.id}/screenshot`, {
-      method: 'POST',
-      headers,
-      body: form,
-    })
-    settled = true
-    clearTimeout(scanningTimer)
-
-    if (!res.ok) {
-      setUploadStatus('error')
-      setScreenshotPath(null)
-      return
-    }
-
-    const data = await res.json()
-    setUploadStatus('done')
-    setScreenshotPath(data.path)
-
-    const ai = data.ai as
-      | { status: 'read'; confidence: 'high' | 'low'; player1_score: number; player2_score: number; autoFinalized: boolean }
-      | { status: 'timeout' | 'no_key' | 'unparsable' | 'error' }
-      | undefined
-
-    if (ai?.status === 'read') {
-      if (ai.confidence === 'high') {
-        setP1Score(String(ai.player1_score))
-        setP2Score(String(ai.player2_score))
-        if (ai.autoFinalized) {
-          setAiNotice({
-            type: 'auto_finalized',
-            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — the result has been confirmed automatically!`,
-          })
-          router.refresh()
-        } else {
-          setAiNotice({
-            type: 'high',
-            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — prefilled below. Double-check it and submit.`,
-          })
-        }
-      } else {
-        setAiNotice({
-          type: 'low',
-          text: '🤖 AI scanned the screenshot but wasn’t confident in the score — please enter it manually below.',
-        })
-      }
-    } else if (ai?.status === 'timeout') {
-      setAiNotice({ type: 'low', text: '🤖 AI scan took too long to finish — please enter the score manually below.' })
-    }
-  }
-
-  function clearScreenshot() {
-    setUploadStatus('idle')
-    setUploadFileName('')
-    setScreenshotPath(null)
-    setAiNotice(null)
-    if (fileRef.current) fileRef.current.value = ''
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -506,7 +428,7 @@ export function PlayerPortal({
                   ref={fileRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  onChange={handleScreenshotUpload}
+                  onChange={handleFile}
                   className="hidden"
                   id="portal-screenshot-upload"
                 />
