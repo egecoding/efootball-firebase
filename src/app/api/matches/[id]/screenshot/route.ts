@@ -57,11 +57,23 @@ export async function POST(
   }
 
   // ── Gemini vision: read score from screenshot ──
+  // Reported back to the client so the UI can show "AI is scanning…" and then
+  // whatever it found — otherwise there's no visible sign the feature is doing
+  // anything beyond the plain upload.
+  type AiOutcome =
+    | { status: 'no_key' }
+    | { status: 'error' }
+    | { status: 'unparsable' }
+    | { status: 'timeout' }
+    | { status: 'read'; confidence: 'high' | 'low'; player1_score: number; player2_score: number; autoFinalized: boolean }
+
+  let aiOutcome: AiOutcome = { status: 'no_key' }
+
   // Fire-and-forget with a 6s timeout so Vercel's 10s limit is never breached.
   const aiKey = process.env.GOOGLE_AI_API_KEY
   console.log('[screenshot] GOOGLE_AI_API_KEY present:', !!aiKey)
   if (aiKey) {
-    const aiTask = (async () => {
+    const aiTask = (async (): Promise<AiOutcome> => {
       try {
         const genAI = new GoogleGenerativeAI(aiKey)
         const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
@@ -112,41 +124,54 @@ Use "low" confidence if the score is not clearly visible, the image is cropped, 
 
           const { error: updateErr } = await admin.from('matches').update(updates).eq('id', params.id)
           console.log('[screenshot] DB update result:', updateErr ?? 'OK', 'updates:', updates)
-          if (!updateErr) {
-            const { data: matchRow } = await admin.from('matches').select('tournament_id').eq('id', params.id).single()
+          if (updateErr) return { status: 'error' }
 
-            // High-confidence read: auto-finalize the match — no organizer click needed.
-            // Silently no-op if it can't finalize yet (already completed, or a draw in a
-            // knockout match) — the score update above still stands either way.
-            if (confidence === 'high') {
-              const finalizeResult = await finalizeMatch(admin, params.id, {
-                player1Score: parsed.player1_score,
-                player2Score: parsed.player2_score,
-                submittedBy: null,
-              })
-              console.log('[screenshot] Auto-finalize result:', finalizeResult)
-            }
+          const { data: matchRow } = await admin.from('matches').select('tournament_id').eq('id', params.id).single()
 
-            // Invalidate the manage page (AI badge / confirmed status) and the public
-            // tournament page (standings/bracket may have just changed)
-            if (matchRow?.tournament_id) {
-              revalidatePath(`/tournaments/${matchRow.tournament_id}/manage`)
-              revalidatePath(`/tournaments/${matchRow.tournament_id}`)
-              console.log('[screenshot] Revalidated pages for tournament:', matchRow.tournament_id)
-            }
+          // High-confidence read: auto-finalize the match — no organizer click needed.
+          // Silently no-op if it can't finalize yet (already completed, or a draw in a
+          // knockout match) — the score update above still stands either way.
+          let autoFinalized = false
+          if (confidence === 'high') {
+            const finalizeResult = await finalizeMatch(admin, params.id, {
+              player1Score: parsed.player1_score,
+              player2Score: parsed.player2_score,
+              submittedBy: null,
+            })
+            console.log('[screenshot] Auto-finalize result:', finalizeResult)
+            autoFinalized = finalizeResult.ok
+          }
+
+          // Invalidate the manage page (AI badge / confirmed status) and the public
+          // tournament page (standings/bracket may have just changed)
+          if (matchRow?.tournament_id) {
+            revalidatePath(`/tournaments/${matchRow.tournament_id}/manage`)
+            revalidatePath(`/tournaments/${matchRow.tournament_id}`)
+            console.log('[screenshot] Revalidated pages for tournament:', matchRow.tournament_id)
+          }
+
+          return {
+            status: 'read',
+            confidence,
+            player1_score: parsed.player1_score,
+            player2_score: parsed.player2_score,
+            autoFinalized,
           }
         }
+
+        return { status: 'unparsable' }
       } catch (err) {
         console.error('[screenshot] Gemini error:', err)
+        return { status: 'error' }
       }
     })()
 
     // Race against a 6-second budget (leaves buffer before Vercel's 10s cut-off)
-    await Promise.race([
+    aiOutcome = await Promise.race([
       aiTask,
-      new Promise<void>((resolve) => setTimeout(resolve, 6000)),
+      new Promise<AiOutcome>((resolve) => setTimeout(() => resolve({ status: 'timeout' }), 6000)),
     ])
   }
 
-  return NextResponse.json({ path })
+  return NextResponse.json({ path, ai: aiOutcome })
 }

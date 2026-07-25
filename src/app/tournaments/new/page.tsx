@@ -1,6 +1,18 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { TournamentForm } from '@/components/tournament/TournamentForm'
 
-export default function NewTournamentPage() {
+export default async function NewTournamentPage() {
+  // Only signed-in users may organize a tournament — guests have no account to
+  // own it. The API already enforces this (401), but without this guard a guest
+  // could fill out the whole form and only find out after submitting.
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) redirect('/auth/login?redirectTo=/tournaments/new')
+
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ??
     (process.env.VERCEL_PROJECT_PRODUCTION_URL

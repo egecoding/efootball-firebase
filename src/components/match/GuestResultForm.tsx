@@ -40,8 +40,9 @@ export function GuestResultForm({
 
   // Screenshot
   const [screenshotPath, setScreenshotPath] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'done' | 'error'>('idle')
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'scanning' | 'done' | 'error'>('idle')
   const [uploadFileName, setUploadFileName] = useState('')
+  const [aiNotice, setAiNotice] = useState<{ type: 'high' | 'low' | 'auto_finalized'; text: string } | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -76,29 +77,73 @@ export function GuestResultForm({
     if (!file) return
     setUploadStatus('uploading')
     setUploadFileName(file.name)
+    setAiNotice(null)
 
     const form = new FormData()
     form.append('file', file)
+
+    // The upload itself is quick — most of the wait is Gemini reading the image
+    // server-side. Flip the label after a moment so it's visible that the AI is
+    // actually doing something, rather than "Uploading…" sitting for 5+ seconds.
+    let settled = false
+    const scanningTimer = setTimeout(() => {
+      if (!settled) setUploadStatus('scanning')
+    }, 700)
 
     const res = await fetch(`/api/matches/${matchId}/screenshot`, {
       method: 'POST',
       headers: { 'X-Participant-Id': participantId! },
       body: form,
     })
+    settled = true
+    clearTimeout(scanningTimer)
 
     if (!res.ok) {
       setUploadStatus('error')
       return
     }
-    const { path } = await res.json()
+
+    const data = await res.json()
     setUploadStatus('done')
-    setScreenshotPath(path)
+    setScreenshotPath(data.path)
+
+    const ai = data.ai as
+      | { status: 'read'; confidence: 'high' | 'low'; player1_score: number; player2_score: number; autoFinalized: boolean }
+      | { status: 'timeout' | 'no_key' | 'unparsable' | 'error' }
+      | undefined
+
+    if (ai?.status === 'read') {
+      if (ai.confidence === 'high') {
+        setP1Score(String(ai.player1_score))
+        setP2Score(String(ai.player2_score))
+        if (ai.autoFinalized) {
+          setAiNotice({
+            type: 'auto_finalized',
+            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — the result has been confirmed automatically!`,
+          })
+          router.refresh()
+        } else {
+          setAiNotice({
+            type: 'high',
+            text: `🤖 AI read the score as ${ai.player1_score}–${ai.player2_score} with high confidence — prefilled below. Double-check it and submit.`,
+          })
+        }
+      } else {
+        setAiNotice({
+          type: 'low',
+          text: '🤖 AI scanned the screenshot but wasn’t confident in the score — please enter it manually below.',
+        })
+      }
+    } else if (ai?.status === 'timeout') {
+      setAiNotice({ type: 'low', text: '🤖 AI scan took too long to finish — please enter the score manually below.' })
+    }
   }
 
   function clearScreenshot() {
     setUploadStatus('idle')
     setUploadFileName('')
     setScreenshotPath(null)
+    setAiNotice(null)
     if (fileRef.current) fileRef.current.value = ''
   }
 
@@ -210,6 +255,12 @@ export function GuestResultForm({
               <span className="text-sm text-gray-500">Uploading {uploadFileName}…</span>
             </div>
           )}
+          {uploadStatus === 'scanning' && (
+            <div className="flex items-center gap-3 rounded-lg border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 px-4 py-3">
+              <Spinner size="sm" />
+              <span className="text-sm text-purple-700 dark:text-purple-400">🤖 AI is scanning the screenshot for the score…</span>
+            </div>
+          )}
           {uploadStatus === 'done' && (
             <div className="flex items-center gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3">
               <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
@@ -227,6 +278,18 @@ export function GuestResultForm({
               </button>
             </div>
           )}
+
+          {aiNotice && (
+            <div
+              className={`mt-2 rounded-lg border px-4 py-3 text-sm ${
+                aiNotice.type === 'low'
+                  ? 'border-orange-200 dark:border-orange-800 bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400'
+                  : 'border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400'
+              }`}
+            >
+              {aiNotice.text}
+            </div>
+          )}
         </div>
 
         {message && (
@@ -241,7 +304,7 @@ export function GuestResultForm({
           </div>
         )}
 
-        <Button type="submit" loading={submitting} disabled={uploadStatus === 'uploading'} size="lg">
+        <Button type="submit" loading={submitting} disabled={uploadStatus === 'uploading' || uploadStatus === 'scanning'} size="lg">
           <Upload className="h-4 w-4" />
           Submit Result
         </Button>
