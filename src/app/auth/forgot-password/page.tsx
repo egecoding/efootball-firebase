@@ -19,7 +19,11 @@ export default function ForgotPasswordPage() {
 
     const supabase = getClient()
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/reset-password`,
+      // This project uses PKCE, so Supabase's link carries a ?code= param that must
+      // be exchanged for a session server-side before the reset page can see it —
+      // going straight to /auth/reset-password left it waiting for an
+      // implicit-flow #access_token fragment that never arrives.
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
     })
 
     setLoading(false)
