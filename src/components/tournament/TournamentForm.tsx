@@ -47,6 +47,8 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
   // Post-creation share state
   const [created, setCreated] = useState<{ id: string; invite_code: string; title: string } | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [addedGuests, setAddedGuests] = useState<string[]>([])
+  const [failedGuests, setFailedGuests] = useState<string[]>([])
 
   function update<K extends keyof TournamentFormData>(field: K, value: TournamentFormData[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -85,13 +87,22 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
 
     const tournament = await res.json()
 
+    // Track each guest's result individually — silently ignoring a failed add
+    // here means the organizer has no way to know a name they typed never
+    // actually made it into the tournament.
+    const added: string[] = []
+    const failed: string[] = []
     for (const name of players) {
-      await fetch(`/api/tournaments/${tournament.id}/participants`, {
+      const playerRes = await fetch(`/api/tournaments/${tournament.id}/participants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       })
+      if (playerRes.ok) added.push(name)
+      else failed.push(name)
     }
+    setAddedGuests(added)
+    setFailedGuests(failed)
 
     setCreated({ id: tournament.id, invite_code: tournament.invite_code, title: tournament.title })
     setLoading(false)
@@ -126,6 +137,33 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
           <p className="text-sm font-semibold text-green-800 dark:text-green-300 mb-1">Tournament created!</p>
           <p className="text-sm text-green-700 dark:text-green-400">Share this link — no code needed.</p>
         </div>
+
+        {addedGuests.length > 0 && (
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+              {addedGuests.length} player{addedGuests.length !== 1 ? 's' : ''} added
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {addedGuests.map((name) => (
+                <span key={name} className="inline-flex items-center rounded-full bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 text-sm px-3 py-1">
+                  {name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {failedGuests.length > 0 && (
+          <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
+              Couldn&apos;t add {failedGuests.length} player{failedGuests.length !== 1 ? 's' : ''}
+            </p>
+            <p className="text-sm text-red-600 dark:text-red-400 mb-2">{failedGuests.join(', ')}</p>
+            <p className="text-xs text-red-600/80 dark:text-red-400/80">
+              Add {failedGuests.length !== 1 ? 'them' : 'this player'} from the manage panel after this.
+            </p>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-xs text-gray-600 dark:text-gray-400 font-mono truncate">
