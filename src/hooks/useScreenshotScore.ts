@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { createWorker, PSM, type Worker } from 'tesseract.js'
 import { preprocessImage, extractScore, type OcrScore } from '@/lib/utils/screenshot-ocr'
 
 export type ScreenshotUploadStatus = 'idle' | 'scanning' | 'uploading' | 'done' | 'error'
 
 export interface AiNotice {
-  type: 'high' | 'low' | 'auto_finalized'
+  type: 'high' | 'low'
   text: string
 }
 
@@ -30,9 +29,10 @@ interface UseScreenshotScoreOptions {
 /**
  * Handles a screenshot upload end to end: reads the score client-side with
  * Tesseract.js (free, runs on the visitor's own device — no external API, no
- * bill, nothing that can go down or rate-limit), then uploads the image with
- * the extracted result attached so the server can write it and auto-finalize
- * on a confident read exactly as it did when Gemini produced that signal.
+ * bill, nothing that can go down or rate-limit), then uploads the image and,
+ * on a confident read, prefills the score fields as a suggestion. It never
+ * submits or finalizes anything on its own — players type/confirm their own
+ * result, same as always.
  */
 export function useScreenshotScore({
   matchId,
@@ -42,7 +42,6 @@ export function useScreenshotScore({
   player2Name,
   onScoreDetected,
 }: UseScreenshotScoreOptions) {
-  const router = useRouter()
   const workerRef = useRef<Worker | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -130,25 +129,17 @@ export function useScreenshotScore({
       return
     }
 
-    const data = (await res.json()) as { path: string; autoFinalized: boolean }
+    const data = (await res.json()) as { path: string }
     setUploadStatus('done')
     setScreenshotPath(data.path)
 
     if (ocr) {
       if (ocr.confidence === 'high') {
         onScoreDetected(ocr.player1_score, ocr.player2_score)
-        if (data.autoFinalized) {
-          setAiNotice({
-            type: 'auto_finalized',
-            text: `🤖 AI read the score as ${ocr.player1_score}–${ocr.player2_score} with high confidence — the result has been confirmed automatically!`,
-          })
-          router.refresh()
-        } else {
-          setAiNotice({
-            type: 'high',
-            text: `🤖 AI read the score as ${ocr.player1_score}–${ocr.player2_score} with high confidence — prefilled below. Double-check it and submit.`,
-          })
-        }
+        setAiNotice({
+          type: 'high',
+          text: `🤖 AI read the score as ${ocr.player1_score}–${ocr.player2_score} with high confidence — prefilled below. Double-check it and submit.`,
+        })
       } else {
         setAiNotice({
           type: 'low',

@@ -229,8 +229,7 @@ export function PlayerPortal({
     return [{ label: null, matches: allMatches }]
   })()
 
-  // This player's own finalized matches — they can contest these (a high-confidence
-  // AI screenshot read finalizes without organizer review, so mistakes can slip through)
+  // This player's own finalized matches — they can contest these if a result looks wrong
   type FinalizedMatch = {
     id: string; status: string
     player1_id: string | null; player1_name: string | null

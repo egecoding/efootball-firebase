@@ -10,7 +10,7 @@ Every organizer eventually deals with the same headache: two players report diff
 
 When you submit a match result, you can attach a screenshot of the in-game full-time screen. The moment you do, the platform scans it right there in your browser — reading the two team names and the score directly off the image, using on-device OCR (optical character recognition). You'll see a quick "scanning" indicator while it works.
 
-If it reads the score with high confidence, it prefills the score fields for you automatically, and — if you're submitting via a match link — can even confirm the result without waiting on the organizer. If it's not confident (a blurry photo, an unusual crop, a cluttered stats screen), it'll say so plainly and just ask you to type the score in yourself. Either way, your screenshot is always attached as evidence for the organizer to see.
+If it reads the score with high confidence, it prefills the score fields for you — but it's always a suggestion, not a decision. You double-check the numbers and hit submit yourself; the organizer still confirms the result on their end. If it's not confident (a blurry photo, an unusual crop, a cluttered stats screen), it'll say so plainly and just ask you to type the score in yourself. Either way, your screenshot is always attached as evidence for the organizer to see.
 
 It's genuinely not perfect — reading text off a stylized game UI is a hard problem, and it works best on a clean, well-lit, uncropped screenshot of the actual full-time score screen. But it's designed to fail safely: when it isn't sure, it says so rather than guessing.
 

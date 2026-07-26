@@ -19,8 +19,9 @@ interface NameAnchor {
 }
 
 // eFootball's scoreboard is large, high-contrast digits — Tesseract reads it well
-// above 70 on a clean screenshot. A false "high" here causes an unreviewed
-// auto-finalize server-side, so this stays conservative rather than lenient.
+// above 70 on a clean screenshot. A false "high" here prefills the wrong score
+// and badges it as AI-verified to the organizer, so this stays conservative
+// rather than lenient — the player still has to notice and fix it before submitting.
 const CONFIDENCE_THRESHOLD = 70
 // How closely a run of recognized words has to match a known player name
 // before we trust it as "this text belongs to that player." OCR noise means
