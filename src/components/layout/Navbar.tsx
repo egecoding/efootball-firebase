@@ -68,10 +68,12 @@ export function Navbar({ user, profile }: NavbarProps) {
         { href: '#how-it-works', label: 'How it works' },
         { href: '#tournaments', label: 'Tournaments' },
         { href: '/tournaments', label: 'Browse Tournaments' },
+        { href: '/blog', label: 'Blog' },
       ]
     : [
         { href: '/tournaments', label: 'Tournaments' },
         { href: '/leaderboard', label: 'Leaderboard' },
+        { href: '/blog', label: 'Blog' },
         ...(user ? [{ href: '/dashboard', label: 'Dashboard' }] : []),
         ...(profile?.is_super_admin ? [{ href: '/admin', label: 'Admin' }] : []),
       ]

@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import typography from '@tailwindcss/typography'
 
 const config: Config = {
   darkMode: 'class',
@@ -72,9 +73,23 @@ const config: Config = {
           to: { backgroundPosition: '-200% 0' },
         },
       },
+      // Blog post typography — matches the site's dark surfaces and brand-green
+      // accent instead of Tailwind Typography's default gray/blue theme.
+      typography: ({ theme }: { theme: (path: string) => string }) => ({
+        DEFAULT: {
+          css: {
+            '--tw-prose-links': theme('colors.brand.600'),
+            '--tw-prose-invert-links': theme('colors.brand.400'),
+            '--tw-prose-bold': theme('colors.gray.900'),
+            '--tw-prose-invert-bold': theme('colors.white'),
+            a: { fontWeight: '600', textDecoration: 'none' },
+            'a:hover': { textDecoration: 'underline' },
+          },
+        },
+      }),
     },
   },
-  plugins: [],
+  plugins: [typography],
 }
 
 export default config

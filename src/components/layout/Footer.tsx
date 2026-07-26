@@ -27,6 +27,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm">
               <li><Link href="/" className="hover:text-brand-400 transition-colors">Home</Link></li>
               <li><Link href="/tournaments" className="hover:text-brand-400 transition-colors">Tournaments</Link></li>
+              <li><Link href="/blog" className="hover:text-brand-400 transition-colors">Blog</Link></li>
               <li><Link href="/auth/signup" className="hover:text-brand-400 transition-colors">Create Tournament</Link></li>
               <li><Link href="/auth/login" className="hover:text-brand-400 transition-colors">Sign In</Link></li>
               <li><Link href="/auth/signup" className="hover:text-brand-400 transition-colors">Sign Up</Link></li>
