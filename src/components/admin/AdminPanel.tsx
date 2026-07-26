@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Users, Trophy, BarChart3, Bell, Search, ChevronLeft, ChevronRight, Shield, ShieldOff, TrendingUp } from 'lucide-react'
+import { Users, Trophy, BarChart3, Bell, Search, ChevronLeft, ChevronRight, Shield, ShieldOff, TrendingUp, FileText, Eye } from 'lucide-react'
 
-type Tab = 'overview' | 'growth' | 'users' | 'tournaments' | 'notifications'
+type Tab = 'overview' | 'growth' | 'blog' | 'users' | 'tournaments' | 'notifications'
 
 interface GrowthStats {
   days: string[]
@@ -12,6 +12,16 @@ interface GrowthStats {
   joins: number[]
   publicTournaments: number
   privateTournaments: number
+}
+
+interface BlogViewStats {
+  total: number
+  today: number
+  thisWeek: number
+  thisMonth: number
+  days: string[]
+  dailyViews: number[]
+  byPost: { slug: string; title: string; views: number }[]
 }
 
 interface Stats {
@@ -70,6 +80,7 @@ export function AdminPanel() {
           {([
             { id: 'overview', label: 'Overview', icon: BarChart3 },
             { id: 'growth', label: 'Growth', icon: TrendingUp },
+            { id: 'blog', label: 'Blog', icon: FileText },
             { id: 'users', label: 'Users', icon: Users },
             { id: 'tournaments', label: 'Tournaments', icon: Trophy },
             { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -92,6 +103,7 @@ export function AdminPanel() {
         {/* Content */}
         {tab === 'overview' && <OverviewTab stats={stats} />}
         {tab === 'growth' && <GrowthTab />}
+        {tab === 'blog' && <BlogTab />}
         {tab === 'users' && <UsersTab />}
         {tab === 'tournaments' && <TournamentsTab />}
         {tab === 'notifications' && <NotificationsTab />}
@@ -221,6 +233,72 @@ function GrowthTab() {
         <p className="text-xs text-gray-600 mt-2">
           {stats.publicTournaments} public (discoverable, indexed via sitemap) · {stats.privateTournaments} private
         </p>
+      </div>
+    </div>
+  )
+}
+
+// ── Blog ──────────────────────────────────────────────────────────────────────
+
+function BlogTab() {
+  const [stats, setStats] = useState<BlogViewStats | null>(null)
+
+  useEffect(() => {
+    fetch('/api/admin/blog-views').then((r) => r.json()).then(setStats)
+  }, [])
+
+  if (!stats) return <div className="text-gray-500 animate-pulse">Loading blog stats…</div>
+
+  const cards = [
+    { label: 'Total views', value: stats.total },
+    { label: 'Today', value: stats.today },
+    { label: 'Last 7 days', value: stats.thisWeek },
+    { label: 'Last 30 days', value: stats.thisMonth },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-gray-500">
+        Page views recorded from the browser (blog posts are static, so this is the only place a per-visit signal comes from). One view per browser tab per post, not deduplicated by visitor.
+      </p>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {cards.map(({ label, value }) => (
+          <div key={label} className="bg-gray-900 border border-gray-800 rounded-2xl p-5">
+            <Eye className="h-5 w-5 mb-3 text-brand-400" />
+            <p className="text-2xl font-bold">{value}</p>
+            <p className="text-sm text-gray-400 mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      <Sparkbars label="Views, last 30 days" values={stats.dailyViews} days={stats.days} color="bg-brand-500" />
+
+      <div>
+        <h2 className="text-base font-semibold mb-3 text-gray-300">Views by post</h2>
+        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-800">
+                <th className="text-left px-5 py-3 text-gray-500 font-medium">Post</th>
+                <th className="text-right px-5 py-3 text-gray-500 font-medium">Views</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.byPost.length === 0 && (
+                <tr><td colSpan={2} className="px-5 py-8 text-center text-gray-500">No views recorded yet.</td></tr>
+              )}
+              {stats.byPost.map((p) => (
+                <tr key={p.slug} className="border-b border-gray-800/50 last:border-0 hover:bg-white/5 transition-colors">
+                  <td className="px-5 py-3">
+                    <a href={`/blog/${p.slug}`} className="hover:text-brand-400 transition-colors">{p.title}</a>
+                  </td>
+                  <td className="px-5 py-3 text-right font-medium">{p.views}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

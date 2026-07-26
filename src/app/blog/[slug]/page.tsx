@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { Calendar, ArrowLeft } from 'lucide-react'
 import { getAllPosts, getPostBySlug } from '@/lib/blog'
 import { SITE_URL } from '@/lib/site'
+import { ViewTracker } from '@/components/blog/ViewTracker'
 
 interface PageProps {
   params: { slug: string }
@@ -53,6 +54,7 @@ export default async function BlogPostPage({ params }: PageProps) {
 
   return (
     <div className="page-container">
+      <ViewTracker slug={post.slug} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

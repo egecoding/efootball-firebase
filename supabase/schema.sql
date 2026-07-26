@@ -263,6 +263,27 @@ CREATE INDEX IF NOT EXISTS idx_match_corrections_match ON public.match_correctio
 GRANT ALL ON public.match_corrections TO service_role;
 
 -- ============================================================
+-- BLOG POST VIEWS
+-- ============================================================
+-- One row per page view, recorded client-side (blog posts are statically
+-- generated, so the page component itself only runs at build time — a
+-- per-request signal has to come from the browser, not the server render).
+-- No dedup beyond a client-side sessionStorage flag — good enough for an
+-- internal traffic signal, not a precise unique-visitor count.
+CREATE TABLE IF NOT EXISTS public.blog_post_views (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug       TEXT NOT NULL,
+  viewed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_blog_post_views_slug ON public.blog_post_views(slug);
+CREATE INDEX IF NOT EXISTS idx_blog_post_views_viewed_at ON public.blog_post_views(viewed_at);
+GRANT ALL ON public.blog_post_views TO service_role;
+-- No RLS policies on purpose — only the service-role client (admin dashboard,
+-- tracking endpoint) touches this table, so clients get no direct access.
+ALTER TABLE public.blog_post_views ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
 -- RESULT SUBMISSIONS
 -- ============================================================
 -- Push notification subscriptions (Web Push VAPID)
