@@ -6,8 +6,9 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'Leaderboard — eFootball Cup',
+  title: 'Leaderboard',
   description: 'See the top eFootball players ranked by wins across every tournament hosted on eFootball Cup.',
+  alternates: { canonical: '/leaderboard' },
   openGraph: {
     title: 'Leaderboard — eFootball Cup',
     description: 'See the top eFootball players ranked by wins across every tournament hosted on eFootball Cup.',

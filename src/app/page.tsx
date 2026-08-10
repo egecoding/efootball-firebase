@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { Trophy, Users, Shield, ChevronRight, Zap, Star, CheckCircle, BarChart2, Award } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { createClient } from '@/lib/supabase/server'
@@ -8,6 +9,21 @@ import { FormatTabs } from '@/components/tournament/FormatTabs'
 import type { TournamentWithOrganizer } from '@/types/database'
 
 export const revalidate = 60
+
+// Uses the root layout's `title.default` rather than the template, so the
+// homepage title stays "eFootball Cup — Free Tournament Manager".
+export const metadata: Metadata = {
+  description:
+    'Run free eFootball tournaments in 60 seconds. Auto-generated knockout, league and round-robin brackets, one-link invites, and live results — no account needed to join.',
+  alternates: { canonical: '/' },
+  openGraph: {
+    title: 'eFootball Cup — Free Tournament Manager',
+    description:
+      'Run free eFootball tournaments in 60 seconds. Auto brackets, one-link invites, live results. No account needed to join.',
+    url: '/',
+    type: 'website',
+  },
+}
 
 export default async function HomePage() {
   const supabase = await createClient()

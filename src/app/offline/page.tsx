@@ -1,3 +1,11 @@
+import type { Metadata } from 'next'
+import { NOINDEX } from '@/lib/seo'
+
+export const metadata: Metadata = {
+  title: 'Offline',
+  robots: NOINDEX,
+}
+
 export default function OfflinePage() {
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">

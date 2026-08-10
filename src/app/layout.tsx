@@ -1,7 +1,10 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics'
+import { JsonLd } from '@/components/seo/JsonLd'
+import { organizationSchema, webSiteSchema } from '@/lib/seo'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -13,13 +16,22 @@ import { SITE_URL } from '@/lib/site'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' })
 
+// NOTE: deliberately no `alternates.canonical` here. Next inherits metadata
+// into every child route that does not override it, so a canonical set on the
+// root layout would point the entire site at "/". Canonicals are per-page.
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'eFootball Cup — Tournament Manager',
+  title: {
+    default: 'eFootball Cup — Free Tournament Manager',
+    template: '%s — eFootball Cup',
+  },
   description:
     'Create and manage eFootball tournaments. Generate brackets, track matches, and compete with players worldwide.',
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
   openGraph: {
-    title: 'eFootball Cup — Tournament Manager',
+    title: 'eFootball Cup — Free Tournament Manager',
     description:
       'Create and manage eFootball tournaments. Generate brackets, track matches, and compete with players worldwide. Free forever.',
     type: 'website',
@@ -27,7 +39,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'eFootball Cup — Tournament Manager',
+    title: 'eFootball Cup — Free Tournament Manager',
     description: 'Create and manage eFootball tournaments. Free forever.',
   },
   manifest: '/manifest.json',
@@ -40,6 +52,11 @@ export const metadata: Metadata = {
   other: {
     'mobile-web-app-capable': 'yes',
   },
+}
+
+// Keep in sync with `theme_color` in public/manifest.json.
+export const viewport: Viewport = {
+  themeColor: '#22c55e',
 }
 
 export default async function RootLayout({
@@ -64,11 +81,9 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning className={inter.variable}>
-      <head>
-        <meta name="theme-color" content="#22c55e" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-      </head>
       <body>
+        <JsonLd data={organizationSchema()} />
+        <JsonLd data={webSiteSchema()} />
         <ThemeProvider>
           <Navbar user={user} profile={profile} />
           <main>{children}</main>
@@ -78,6 +93,7 @@ export default async function RootLayout({
           <PushPrompt enabled={!!user} />
         </ThemeProvider>
         <Analytics />
+        <GoogleAnalytics />
       </body>
     </html>
   )

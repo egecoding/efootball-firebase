@@ -4,8 +4,9 @@ import { Calendar } from 'lucide-react'
 import { getAllPosts } from '@/lib/blog'
 
 export const metadata: Metadata = {
-  title: 'Blog — eFootball Cup',
+  title: 'Blog',
   description: 'Guides and tips for organizing and playing in free eFootball tournaments — formats, fair-play tools, and running a smooth competition.',
+  alternates: { canonical: '/blog' },
   openGraph: {
     title: 'Blog — eFootball Cup',
     description: 'Guides and tips for organizing and playing in free eFootball tournaments.',

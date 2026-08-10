@@ -2,20 +2,36 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
 import type { TournamentWithOrganizer } from '@/types/database'
 
 export const revalidate = 30
 
-export const metadata: Metadata = {
-  title: 'Browse eFootball Tournaments — eFootball Cup',
-  description:
-    'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community — no account needed to join.',
-  openGraph: {
-    title: 'Browse eFootball Tournaments — eFootball Cup',
-    description: 'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community.',
-    type: 'website',
-  },
+const DESCRIPTION =
+  'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community — no account needed to join.'
+
+/**
+ * `?q=` is free text, so the filtered URL space is unbounded. Every variant
+ * canonicals back to the clean /tournaments, and filtered views additionally
+ * carry noindex/follow — the canonical alone is only a hint, while `follow`
+ * keeps crawl flowing through to the tournament detail pages.
+ */
+export function generateMetadata({ searchParams }: PageProps): Metadata {
+  const filtered = !!(searchParams.q || searchParams.status || searchParams.format)
+
+  return {
+    title: 'Browse eFootball Tournaments',
+    description: DESCRIPTION,
+    alternates: { canonical: '/tournaments' },
+    ...(filtered ? { robots: NOINDEX } : {}),
+    openGraph: {
+      title: 'Browse eFootball Tournaments — eFootball Cup',
+      description:
+        'Find and join free eFootball tournaments. Browse live brackets, upcoming cups, and completed tournaments from the eFootball community.',
+      type: 'website',
+    },
+  }
 }
 
 const STATUS_FILTERS = [

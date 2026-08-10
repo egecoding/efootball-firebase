@@ -1,12 +1,19 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { NOINDEX } from '@/lib/seo'
 import { ManagePanel } from '@/components/tournament/ManagePanel'
 import type { TournamentWithOrganizer, ParticipantWithProfile } from '@/types/database'
 
 interface PageProps {
   params: { id: string }
+}
+
+export const metadata: Metadata = {
+  title: 'Manage Tournament',
+  robots: NOINDEX,
 }
 
 export type ManageMatch = {

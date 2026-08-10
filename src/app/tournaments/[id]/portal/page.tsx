@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { PlayerPortal } from '@/components/tournament/PlayerPortal'
 import type {
   TournamentWithOrganizer,
@@ -10,6 +12,11 @@ import type {
 
 interface PageProps {
   params: { id: string }
+}
+
+export const metadata: Metadata = {
+  title: 'Player Portal',
+  robots: NOINDEX,
 }
 
 export default async function PlayerPortalPage({ params }: PageProps) {

@@ -1,7 +1,14 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { OwnProfileView } from '@/components/profile/OwnProfileView'
 import type { Profile } from '@/types/database'
+
+export const metadata: Metadata = {
+  title: 'Your Profile',
+  robots: NOINDEX,
+}
 
 export default async function OwnProfilePage() {
   const supabase = await createClient()

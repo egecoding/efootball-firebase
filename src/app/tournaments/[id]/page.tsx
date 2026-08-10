@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import { Users, Calendar, Trophy, Settings, Upload } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { SITE_URL } from '@/lib/site'
+import { breadcrumbSchema, sportsEventSchema, NOINDEX } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { TournamentStatusBadge } from '@/components/ui/Badge'
 import { Avatar } from '@/components/ui/Avatar'
 import { BracketView } from '@/components/tournament/BracketView'
@@ -31,9 +33,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .eq('id', params.id)
     .single()
 
-  if (!tournament) return { title: 'Tournament not found — eFootball Cup' }
+  if (!tournament) return { title: 'Tournament not found', robots: NOINDEX }
 
-  const title = `${tournament.title} — eFootball Cup`
+  const title = tournament.title
   const description =
     tournament.description ??
     `${tournament.game_name} ${tournament.format.replace(/_/g, ' ')} tournament on eFootball Cup. Join brackets, track live results, and compete for free.`
@@ -41,6 +43,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
+    alternates: { canonical: `/tournaments/${params.id}` },
     openGraph: {
       title,
       description,
@@ -213,31 +216,15 @@ export default async function TournamentDetailPage({ params }: PageProps) {
   // Show cards only to organizer, winner, or top scorer
   const showCards = tournament.status === 'completed' && (isOrganizer || isWinner || isTopScorer)
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'SportsEvent',
-    name: tournament.title,
-    description: tournament.description ?? `${tournament.game_name} tournament on eFootball Cup`,
-    url: `${SITE_URL}/tournaments/${tournament.id}`,
-    sport: tournament.game_name,
-    eventStatus:
-      tournament.status === 'completed'
-        ? 'https://schema.org/EventCompleted'
-        : tournament.status === 'in_progress'
-          ? 'https://schema.org/EventScheduled'
-          : 'https://schema.org/EventScheduled',
-    ...(tournament.starts_at ? { startDate: tournament.starts_at } : {}),
-    ...(organizer
-      ? { organizer: { '@type': 'Person', name: organizer.display_name ?? organizer.username } }
-      : {}),
-    maximumAttendeeCapacity: tournament.max_participants,
-  }
-
   return (
     <div className="page-container">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd data={sportsEventSchema(typedTournament, organizer)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Tournaments', path: '/tournaments' },
+          { name: tournament.title, path: `/tournaments/${tournament.id}` },
+        ])}
       />
       <RealtimeRefresh tournamentId={tournament.id} />
       {/* Header */}

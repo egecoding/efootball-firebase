@@ -1,7 +1,9 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ResultForm } from '@/components/match/ResultForm'
 import { GuestResultForm } from '@/components/match/GuestResultForm'
@@ -14,6 +16,12 @@ import type { Match, MatchWithPlayers, Profile } from '@/types/database'
 
 interface PageProps {
   params: { id: string }
+}
+
+// Thin and result-entry focused — no standalone search value.
+export const metadata: Metadata = {
+  title: 'Match',
+  robots: NOINDEX,
 }
 
 export default async function MatchPage({ params }: PageProps) {

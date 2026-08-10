@@ -1,6 +1,13 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { TournamentForm } from '@/components/tournament/TournamentForm'
+
+export const metadata: Metadata = {
+  title: 'New Tournament',
+  robots: NOINDEX,
+}
 
 export default async function NewTournamentPage() {
   // Only signed-in users may organize a tournament — guests have no account to

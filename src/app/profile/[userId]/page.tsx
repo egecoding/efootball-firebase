@@ -1,5 +1,7 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { NOINDEX } from '@/lib/seo'
 import { Avatar } from '@/components/ui/Avatar'
 import { StatsCard } from '@/components/profile/StatsCard'
 import { TournamentCard } from '@/components/tournament/TournamentCard'
@@ -8,6 +10,13 @@ import { Calendar } from 'lucide-react'
 
 interface PageProps {
   params: { userId: string }
+}
+
+// Thin (wins/losses only). Revisit if profiles ever gain match history depth —
+// they are the natural long-tail surface for a site with a leaderboard.
+export const metadata: Metadata = {
+  title: 'Player Profile',
+  robots: NOINDEX,
 }
 
 export default async function PublicProfilePage({ params }: PageProps) {

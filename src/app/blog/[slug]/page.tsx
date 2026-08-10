@@ -4,6 +4,8 @@ import type { Metadata } from 'next'
 import { Calendar, ArrowLeft } from 'lucide-react'
 import { getAllPosts, getPostBySlug } from '@/lib/blog'
 import { SITE_URL } from '@/lib/site'
+import { blogPostingSchema, breadcrumbSchema, NOINDEX } from '@/lib/seo'
+import { JsonLd } from '@/components/seo/JsonLd'
 import { ViewTracker } from '@/components/blog/ViewTracker'
 
 interface PageProps {
@@ -16,19 +18,21 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const post = await getPostBySlug(params.slug)
-  if (!post) return { title: 'Post not found — eFootball Cup' }
+  if (!post) return { title: 'Post not found', robots: NOINDEX }
 
-  const title = `${post.title} — eFootball Cup`
+  const title = post.title
 
   return {
     title,
     description: post.description,
+    alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
       title,
       description: post.description,
       url: `${SITE_URL}/blog/${post.slug}`,
       type: 'article',
       publishedTime: post.date,
+      modifiedTime: post.updated ?? post.date,
     },
     twitter: {
       card: 'summary_large_image',
@@ -42,22 +46,16 @@ export default async function BlogPostPage({ params }: PageProps) {
   const post = await getPostBySlug(params.slug)
   if (!post) notFound()
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'BlogPosting',
-    headline: post.title,
-    description: post.description,
-    datePublished: post.date,
-    url: `${SITE_URL}/blog/${post.slug}`,
-    author: { '@type': 'Organization', name: 'eFootball Cup' },
-  }
-
   return (
     <div className="page-container">
       <ViewTracker slug={post.slug} />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      <JsonLd data={blogPostingSchema(post)} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: 'Home', path: '/' },
+          { name: 'Blog', path: '/blog' },
+          { name: post.title, path: `/blog/${post.slug}` },
+        ])}
       />
       <div className="max-w-2xl mx-auto">
         <Link

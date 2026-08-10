@@ -11,6 +11,10 @@ export interface BlogPostMeta {
   title: string
   description: string
   date: string
+  /** Optional frontmatter — existing posts predate these and leave them undefined. */
+  updated?: string
+  author?: string
+  tags?: string[]
 }
 
 export interface BlogPost extends BlogPostMeta {
@@ -30,6 +34,9 @@ function toMeta(slug: string, data: Record<string, unknown>): BlogPostMeta {
     title: (data.title as string) ?? slug,
     description: (data.description as string) ?? '',
     date: (data.date as string) ?? new Date(0).toISOString(),
+    updated: (data.updated as string) ?? undefined,
+    author: (data.author as string) ?? undefined,
+    tags: Array.isArray(data.tags) ? (data.tags as string[]) : undefined,
   }
 }
 
