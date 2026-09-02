@@ -56,4 +56,4 @@ Everyone plays everyone. No eliminations — the table decides everything. Leagu
 - **Want the most "real football" feel?** Champions League format.
 - **Hate the idea of one bad game ending your night?** Double Elimination.
 
-Whatever you pick, you can see it in action — [browse open tournaments](/tournaments) running right now on each format, or just [create your own](/tournaments/new) and try it out.
+Whatever you pick, you can see it in action — [browse open tournaments](/tournaments) running right now on each format, or just [create your own](/tournaments/new) and try it out. Organizing in Kenya? [Here's how the scene is already running tournaments](/blog/efootball-tournaments-kenya-scene) with these same formats.

@@ -39,4 +39,4 @@ As results come in, standings, brackets, and next-round matchups update automati
 
 At the end, the champion (and top scorer) gets a shareable winner card — post it straight to your group chat and let them enjoy the bragging rights.
 
-That's the whole process. No spreadsheets, no cost, no account required for anyone except the organizer. If you're still deciding on a format, [read this next](/blog/choosing-the-right-tournament-format).
+That's the whole process. No spreadsheets, no cost, no account required for anyone except the organizer. If you're still deciding on a format, [read this next](/blog/choosing-the-right-tournament-format). Organizing for a specific community? [See how it works for gaming lounges in Kenya](/blog/efootball-tournament-gaming-lounge-kenya).

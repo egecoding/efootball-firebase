@@ -1,12 +1,13 @@
 ---
 title: "How to Run a Free eFootball Tournament at Your Gaming Lounge in Kenya"
-description: "A step-by-step guide for gaming lounge owners in Nairobi, Mombasa, Kisumu, and Eldoret to run fair, fast eFootball tournaments on PS4/PS5 — free, no app install."
+description: "A step-by-step guide for gaming lounge owners in Nairobi, Mombasa, Kisumu, and Eldoret to run fair, fast eFootball (FIFA) tournaments on PS4/PS5 — free, no app install."
 date: "2026-07-26"
+tags: ["Kenya", "gaming lounge", "PS4 PS5 tournament Kenya"]
 ---
 
 Walk into most gaming lounges in Nairobi on a weekend and you'll see the same thing: a queue of guys waiting for the PS5, a whiteboard with names scratched out and rewritten, and someone's phone open to a WhatsApp group arguing about who actually won the last match. It works, but it eats paid console time and it's the fastest way to send a customer home annoyed.
 
-A bracket you run from your phone fixes most of that, and it costs nothing.
+A bracket you run from your phone fixes most of that, and it costs nothing. This guide focuses on the big-console-lounge setup — if your crowd is more of a [WhatsApp group scene](/blog/efootball-tournaments-kenya-scene) than a walk-in venue, the same tool works there too.
 
 ## The real cost of running it on paper
 
@@ -25,4 +26,4 @@ Consoles at a Kenyan gaming lounge are shared, rented by the hour, and rarely ha
 
 It also means you can run a proper tournament — with a real bracket, a shareable link, and a fair way to settle scores — for a one-off Saturday night event with zero setup cost and nothing to teach your regulars beyond "open this link."
 
-Ready to run your first one? [Start a tournament](/tournaments/new) and drop the invite link in your lounge's group chat before your next big night.
+Ready to run your first one? [Start a tournament](/tournaments/new) and drop the invite link in your lounge's group chat before your next big night. Running something smaller outside Nairobi, Mombasa, Kisumu, or Eldoret? [It works the same way](/blog/efootball-tournament-small-towns-kenya).

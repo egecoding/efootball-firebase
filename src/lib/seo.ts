@@ -62,6 +62,32 @@ export function webSiteSchema() {
   }
 }
 
+export function softwareApplicationSchema() {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    '@id': `${SITE_URL}/#software`,
+    name: SITE_NAME,
+    url: `${SITE_URL}/`,
+    description:
+      'Free web-based eFootball (FIFA) tournament bracket manager — create brackets, invite players with a link, and track results. No installation required.',
+    applicationCategory: 'SportsApplication',
+    operatingSystem: 'Web',
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+    featureList: [
+      'Knockout, round robin, and league tournament brackets',
+      'No-account guest player join via link',
+      'AI screenshot scanning for match results',
+      'Live standings and automatic bracket updates',
+    ],
+    publisher: { '@id': ORG_ID },
+    isPartOf: { '@id': SITE_ID },
+    // No aggregateRating/review — there is no real rating data collected
+    // anywhere on the platform, and fabricating either is a structured-data
+    // spam violation that risks a manual action against the whole site.
+  }
+}
+
 // ─── Per-page schemas ──────────────────────────────────────────────────────
 
 export function breadcrumbSchema(items: { name: string; path: string }[]) {
@@ -98,6 +124,18 @@ export function blogPostingSchema(post: BlogPostMeta) {
     publisher: { '@id': ORG_ID },
     isPartOf: { '@id': SITE_ID },
     ...(post.tags?.length ? { keywords: post.tags.join(', ') } : {}),
+  }
+}
+
+export function faqPageSchema(items: { question: string; answer: string }[]) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: items.map((item) => ({
+      '@type': 'Question',
+      name: item.question,
+      acceptedAnswer: { '@type': 'Answer', text: item.answer },
+    })),
   }
 }
 

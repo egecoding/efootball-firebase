@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-t border-gray-200 dark:border-gray-800 bg-gray-950 text-gray-400">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
           {/* Col 1 — Brand */}
           <div>
             <Link href="/" className="inline-flex items-center gap-2 mb-4 group">
@@ -34,7 +34,19 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Col 3 — Connect */}
+          {/* Col 3 — Guides */}
+          <div>
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Guides</h3>
+            <ul className="space-y-3 text-sm">
+              <li><Link href="/blog/how-to-run-a-free-efootball-tournament" className="hover:text-brand-400 transition-colors">How to Run a Tournament</Link></li>
+              <li><Link href="/blog/choosing-the-right-tournament-format" className="hover:text-brand-400 transition-colors">Choosing a Format</Link></li>
+              <li><Link href="/blog/efootball-tournaments-kenya-scene" className="hover:text-brand-400 transition-colors">eFootball in Kenya</Link></li>
+              <li><Link href="/blog/efootball-tournament-gaming-lounge-kenya" className="hover:text-brand-400 transition-colors">Gaming Lounge Tournaments</Link></li>
+              <li><Link href="/blog/fifa-vs-efootball-naming-explained-kenya" className="hover:text-brand-400 transition-colors">FIFA vs eFootball, Explained</Link></li>
+            </ul>
+          </div>
+
+          {/* Col 4 — Connect */}
           <div>
             <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">Connect</h3>
             <ul className="space-y-3 text-sm">

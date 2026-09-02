@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import { Calendar, ArrowLeft } from 'lucide-react'
 import { getAllPosts, getPostBySlug } from '@/lib/blog'
 import { SITE_URL } from '@/lib/site'
-import { blogPostingSchema, breadcrumbSchema, NOINDEX } from '@/lib/seo'
+import { blogPostingSchema, breadcrumbSchema, faqPageSchema, NOINDEX } from '@/lib/seo'
 import { JsonLd } from '@/components/seo/JsonLd'
 import { ViewTracker } from '@/components/blog/ViewTracker'
 
@@ -57,6 +57,7 @@ export default async function BlogPostPage({ params }: PageProps) {
           { name: post.title, path: `/blog/${post.slug}` },
         ])}
       />
+      {post.faq?.length ? <JsonLd data={faqPageSchema(post.faq)} /> : null}
       <div className="max-w-2xl mx-auto">
         <Link
           href="/blog"
@@ -76,6 +77,20 @@ export default async function BlogPostPage({ params }: PageProps) {
           className="prose dark:prose-invert prose-headings:font-bold max-w-none"
           dangerouslySetInnerHTML={{ __html: post.contentHtml }}
         />
+
+        {post.faq?.length ? (
+          <section className="mt-10 border-t border-gray-200 dark:border-gray-800 pt-8">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Frequently asked questions</h2>
+            <div className="space-y-5">
+              {post.faq.map((item) => (
+                <div key={item.question}>
+                  <p className="font-semibold text-gray-900 dark:text-white text-sm">{item.question}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import { Analytics } from '@vercel/analytics/react'
 import './globals.css'
 import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics'
 import { JsonLd } from '@/components/seo/JsonLd'
-import { organizationSchema, webSiteSchema } from '@/lib/seo'
+import { organizationSchema, webSiteSchema, softwareApplicationSchema } from '@/lib/seo'
 import { ThemeProvider } from '@/components/layout/ThemeProvider'
 import { Navbar } from '@/components/layout/Navbar'
 import { Footer } from '@/components/layout/Footer'
@@ -84,6 +84,7 @@ export default async function RootLayout({
       <body>
         <JsonLd data={organizationSchema()} />
         <JsonLd data={webSiteSchema()} />
+        <JsonLd data={softwareApplicationSchema()} />
         <ThemeProvider>
           <Navbar user={user} profile={profile} />
           <main>{children}</main>

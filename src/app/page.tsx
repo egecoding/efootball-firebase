@@ -250,7 +250,7 @@ export default async function HomePage() {
               icon: Users,
               step: '02',
               title: 'Invite',
-              description: 'Share the link. Players join with just a nametag — no account, no friction.',
+              description: 'Share the link — in your WhatsApp group, campus hostel chat, or gaming lounge in Nairobi. Players join with just a nametag — no account, no friction.',
               color: 'from-blue-500/20 to-blue-600/5 border-blue-500/30',
               iconColor: 'text-blue-400',
               numColor: 'text-blue-400',
@@ -380,7 +380,13 @@ export default async function HomePage() {
         <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 p-8">
           <div className="text-center mb-8">
             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Why organizers choose eFootball Cup</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Simple, fast, and built specifically for eFootball communities.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Simple, fast, and built specifically for eFootball communities — from{' '}
+              <Link href="/blog/efootball-tournament-gaming-lounge-kenya" className="text-brand-500 hover:underline">
+                Nairobi gaming lounges
+              </Link>{' '}
+              to campuses and Discord servers worldwide.
+            </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[

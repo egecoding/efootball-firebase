@@ -15,6 +15,7 @@ export interface BlogPostMeta {
   updated?: string
   author?: string
   tags?: string[]
+  faq?: { question: string; answer: string }[]
 }
 
 export interface BlogPost extends BlogPostMeta {
@@ -37,6 +38,7 @@ function toMeta(slug: string, data: Record<string, unknown>): BlogPostMeta {
     updated: (data.updated as string) ?? undefined,
     author: (data.author as string) ?? undefined,
     tags: Array.isArray(data.tags) ? (data.tags as string[]) : undefined,
+    faq: Array.isArray(data.faq) ? (data.faq as { question: string; answer: string }[]) : undefined,
   }
 }
 
