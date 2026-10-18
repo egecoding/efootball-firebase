@@ -327,6 +327,21 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
   // Pending leg2 matches (home_away_knockout / group_knockout) — show greyed out
   const pendingLeg2Matches = matches.filter((m) => m.status === 'pending' && m.leg === 2)
 
+  // Participants who've already played a match (completed/awaiting_confirmation/walkover)
+  // can no longer be edited or removed — keeps match history & standings consistent.
+  const lockedParticipantIds = new Set(
+    participants
+      .filter((p) =>
+        matches.some((m) => {
+          if (m.status !== 'completed' && m.status !== 'walkover' && m.status !== 'awaiting_confirmation') return false
+          const isThisParticipant = (pid: string | null, pname: string | null) =>
+            p.user_id ? pid === p.user_id : pid === null && pname === p.name
+          return isThisParticipant(m.player1_id, m.player1_name) || isThisParticipant(m.player2_id, m.player2_name)
+        })
+      )
+      .map((p) => p.id)
+  )
+
   return (
     <div className="flex flex-col gap-6">
       {/* Status */}
@@ -968,6 +983,7 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
           organizerId={tournament.organizer_id}
           currentUserId={currentUserId ?? tournament.organizer_id}
           tournamentId={tournament.id}
+          lockedParticipantIds={lockedParticipantIds}
         />
       </div>
 

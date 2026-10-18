@@ -171,13 +171,18 @@ CREATE TABLE IF NOT EXISTS public.rounds (
   tournament_id  UUID NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
   round_number   INTEGER NOT NULL,
   round_name     TEXT NOT NULL,
-  phase          TEXT CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final')),
+  phase          TEXT CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final', 'league')),
   UNIQUE(tournament_id, round_number)
 );
 
 -- Migration: add phase column to existing rounds table
 ALTER TABLE public.rounds ADD COLUMN IF NOT EXISTS phase TEXT
-  CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final'));
+  CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final', 'league'));
+
+-- Migration: allow 'league' phase (champions_league / Swiss format rounds were failing this check)
+ALTER TABLE public.rounds DROP CONSTRAINT IF EXISTS rounds_phase_check;
+ALTER TABLE public.rounds ADD CONSTRAINT rounds_phase_check
+  CHECK (phase IN ('group', 'knockout', 'winners', 'losers', 'grand_final', 'league'));
 
 CREATE INDEX IF NOT EXISTS idx_rounds_tournament ON public.rounds(tournament_id);
 
