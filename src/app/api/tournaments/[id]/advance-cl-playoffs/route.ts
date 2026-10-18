@@ -239,14 +239,21 @@ export async function POST(
     .from('matches').insert(koMatchesPayload).select()
   if (koMatchesErr) return NextResponse.json({ error: koMatchesErr.message }, { status: 500 })
 
-  const koMatchNumberToId = new Map<number, string>(
-    koMatches.map((m: { match_number: number; id: string }) => [m.match_number, m.id] as [number, string])
+  // `koMatches` is 1:1 positional with `brackets` (koMatchesPayload was built via
+  // brackets.map(...) in a single insert) — pair them by array index rather than by
+  // the DB `match_number` column. That column is a tournament-wide running counter
+  // continuing from however many league/playoff matches already exist, so it never
+  // equals generateBracket()'s own 1-based local matchNumber/nextMatchNumber; keying
+  // by match_number silently missed every lookup, leaving every knockout round
+  // unlinked from the next (winners had nowhere to advance to past the first round).
+  const localMatchNumToId = new Map<number, string>(
+    brackets.map((m, i) => [m.matchNumber, koMatches[i].id])
   )
 
   for (const m of brackets) {
     if (m.nextMatchNumber !== null) {
-      const nextId = koMatchNumberToId.get(m.nextMatchNumber)
-      const selfId = koMatchNumberToId.get(m.matchNumber)
+      const nextId = localMatchNumToId.get(m.nextMatchNumber)
+      const selfId = localMatchNumToId.get(m.matchNumber)
       if (nextId && selfId) {
         await admin.from('matches').update({ next_match_id: nextId }).eq('id', selfId)
       }
