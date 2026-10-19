@@ -596,6 +596,21 @@ async function startHomeAwayKnockout(
             const idField = leg2.next_match_slot === 1 ? 'player1_id' : 'player2_id'
             const nameField = leg2.next_match_slot === 1 ? 'player1_name' : 'player2_name'
             await supabase.from('matches').update({ [idField]: winner_id, [nameField]: winner_name }).eq('id', leg2.next_match_id)
+
+            // If the next round's tie also has a leg 2, the same winner belongs
+            // in its mirrored (swapped) slot too — otherwise that leg 2 is
+            // permanently missing one player, invisible until its sibling leg 1
+            // is eventually played and flips it from pending to scheduled.
+            const { data: nextTarget } = await supabase.from('matches').select('tie_id').eq('id', leg2.next_match_id).single()
+            if (nextTarget?.tie_id) {
+              const { data: nextLeg2 } = await supabase.from('matches').select('id').eq('tie_id', nextTarget.tie_id).eq('leg', 2).single()
+              if (nextLeg2) {
+                const swappedSlot = leg2.next_match_slot === 1 ? 2 : 1
+                const swappedIdField = swappedSlot === 1 ? 'player1_id' : 'player2_id'
+                const swappedNameField = swappedSlot === 1 ? 'player1_name' : 'player2_name'
+                await supabase.from('matches').update({ [swappedIdField]: winner_id, [swappedNameField]: winner_name }).eq('id', nextLeg2.id)
+              }
+            }
           }
         }
       }
