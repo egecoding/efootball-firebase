@@ -115,8 +115,10 @@ export async function POST(
     .update({ winner_id, ...forfeitScores, status: 'walkover', played_at: new Date().toISOString() })
     .eq('id', params.id)
 
-  // Handle home_away_knockout / group_knockout: if this is leg 1 of a tie, mark leg 2 as walkover too
-  if ((tournament.format === 'home_away_knockout' || tournament.format === 'group_knockout') && match.tie_id && match.leg === 1) {
+  // If this is leg 1 of a two-legged tie, mark leg 2 as walkover too. Keyed on
+  // tie_id/leg alone (not a per-format list) so this applies uniformly to
+  // group_knockout, home_away_knockout, and knockout-with-home_and_away.
+  if (match.tie_id && match.leg === 1) {
     const { data: leg2 } = await admin
       .from('matches')
       .select('id, player1_id, player2_id')
@@ -158,10 +160,7 @@ export async function POST(
 
   // Advance winner to next match. Skipped for leg 1 of a two-legged tie, whose
   // next_match_id points at leg 2 (already handled above).
-  const isTwoLeggedLeg1 =
-    (tournament.format === 'home_away_knockout' || tournament.format === 'group_knockout') &&
-    !!match.tie_id &&
-    match.leg === 1
+  const isTwoLeggedLeg1 = !!match.tie_id && match.leg === 1
 
   if (!isTwoLeggedLeg1 && match.next_match_id && match.next_match_slot) {
     await advanceInto(admin, match.next_match_id, match.next_match_slot, winner_id, winner_name)

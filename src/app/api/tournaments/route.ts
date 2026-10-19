@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { title, description, game_name, max_participants, is_public, starts_at, format } = body
+  const { title, description, game_name, max_participants, is_public, starts_at, format, home_and_away } = body
 
   if (!title?.trim()) {
     return NextResponse.json({ error: 'Title is required' }, { status: 400 })
@@ -60,6 +60,11 @@ export async function POST(request: Request) {
   const validFormats = ['knockout', 'round_robin', 'league', 'group_knockout', 'double_elimination', 'champions_league', 'home_away_knockout']
   const resolvedFormat = validFormats.includes(format) ? format : 'knockout'
 
+  // The home & away toggle only makes sense for formats that don't already
+  // have a fixed leg structure — never trust the client for the rest.
+  const formatsSupportingToggle = ['knockout', 'round_robin', 'league', 'group_knockout']
+  const resolvedHomeAndAway = formatsSupportingToggle.includes(resolvedFormat) && home_and_away === true
+
   const { data, error } = await supabase
     .from('tournaments')
     .insert({
@@ -71,6 +76,7 @@ export async function POST(request: Request) {
       format: resolvedFormat,
       is_public: is_public ?? true,
       starts_at: starts_at || null,
+      home_and_away: resolvedHomeAndAway,
     })
     .select()
     .single()

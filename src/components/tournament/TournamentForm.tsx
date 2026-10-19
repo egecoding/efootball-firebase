@@ -15,7 +15,14 @@ interface TournamentFormData {
   is_public: boolean
   starts_at: string
   format: TournamentFormat
+  home_and_away: boolean
 }
+
+// Formats with a fixed leg structure (always single, or always two legs)
+// don't get the toggle: champions_league's Swiss pairing actively avoids
+// rematches, double_elimination isn't wired to read the flag yet, and
+// home_away_knockout already always plays two legs on its own.
+const FORMATS_SUPPORTING_HOME_AND_AWAY: TournamentFormat[] = ['knockout', 'round_robin', 'league', 'group_knockout']
 
 const FORMAT_OPTIONS: { value: TournamentFormat; label: string; desc: string }[] = [
   { value: 'knockout', label: 'Knockout', desc: "Single-elimination bracket. Lose once and you're out." },
@@ -37,6 +44,7 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
     is_public: true,
     starts_at: '',
     format: 'knockout',
+    home_and_away: false,
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -234,7 +242,11 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
             <button
               key={opt.value}
               type="button"
-              onClick={() => update('format', opt.value)}
+              onClick={() => setForm((prev) => ({
+                ...prev,
+                format: opt.value,
+                home_and_away: FORMATS_SUPPORTING_HOME_AND_AWAY.includes(opt.value) ? prev.home_and_away : false,
+              }))}
               className={`flex items-start gap-3 rounded-lg border px-4 py-3 text-left transition-colors ${
                 form.format === opt.value
                   ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20'
@@ -255,6 +267,26 @@ export function TournamentForm({ baseUrl }: { baseUrl: string }) {
             </button>
           ))}
         </div>
+        {FORMATS_SUPPORTING_HOME_AND_AWAY.includes(form.format) && (
+          <div className="flex items-center gap-3 mt-1 pl-1">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={form.home_and_away}
+              onClick={() => update('home_and_away', !form.home_and_away)}
+              className={`relative h-6 w-11 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 shrink-0 ${
+                form.home_and_away ? 'bg-brand-500' : 'bg-gray-300 dark:bg-gray-700'
+              }`}
+            >
+              <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                form.home_and_away ? 'translate-x-5' : 'translate-x-0.5'
+              }`} />
+            </button>
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Home &amp; away <span className="text-gray-400">(play each opponent twice, back to back)</span>
+            </span>
+          </div>
+        )}
       </div>
 
       <Input

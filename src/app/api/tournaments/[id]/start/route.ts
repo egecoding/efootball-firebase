@@ -16,7 +16,7 @@ export async function POST(
 
   const admin = createAdminClient()
   const [{ data: tournament }, superAdmin] = await Promise.all([
-    admin.from('tournaments').select('organizer_id, status, format').eq('id', params.id).single(),
+    admin.from('tournaments').select('organizer_id, status, format, home_and_away').eq('id', params.id).single(),
     checkSuperAdmin(user.id),
   ])
 
@@ -59,9 +59,18 @@ export async function POST(
   }))
 
   const format = (tournament.format as string) ?? 'knockout'
+  // Only knockout / round_robin / league / group_knockout support the toggle
+  // (enforced again server-side on create — see POST /api/tournaments) — champions_league's
+  // Swiss pairing actively avoids rematches, and double_elimination/home_away_knockout
+  // aren't wired to read this flag at all.
+  const homeAndAway = Boolean(tournament.home_and_away)
 
   if (format === 'knockout') {
-    return startKnockout(supabase, params.id, bracketParticipants)
+    // Reuse the exact, already-proven two-legged mechanism behind the dedicated
+    // home_away_knockout format instead of writing a second implementation.
+    return homeAndAway
+      ? startHomeAwayKnockout(admin, params.id, bracketParticipants)
+      : startKnockout(supabase, params.id, bracketParticipants)
   } else if (format === 'double_elimination') {
     if (participants.length < 4)
       return NextResponse.json({ error: 'Double elimination requires at least 4 participants' }, { status: 409 })
@@ -69,7 +78,7 @@ export async function POST(
   } else if (format === 'group_knockout') {
     if (participants.length < 4)
       return NextResponse.json({ error: 'Group stage requires at least 4 participants' }, { status: 409 })
-    return startGroupKnockout(supabase, params.id, bracketParticipants)
+    return startGroupKnockout(supabase, params.id, bracketParticipants, homeAndAway)
   } else if (format === 'champions_league') {
     if (participants.length < 4)
       return NextResponse.json({ error: 'Champions League format requires at least 4 participants' }, { status: 409 })
@@ -79,7 +88,7 @@ export async function POST(
       return NextResponse.json({ error: 'Need at least 2 participants' }, { status: 409 })
     return startHomeAwayKnockout(admin, params.id, bracketParticipants)
   } else {
-    return startRoundRobin(supabase, params.id, bracketParticipants, format)
+    return startRoundRobin(supabase, params.id, bracketParticipants, format, homeAndAway)
   }
 }
 
@@ -169,17 +178,23 @@ async function startRoundRobin(
   supabase: any,
   tournamentId: string,
   bracketParticipants: { id: string | null; name: string | null; participantId: string }[],
-  format: string
+  format: string,
+  homeAndAway = false
 ) {
-  const rrMatches = generateRoundRobin(bracketParticipants)
+  const rrMatches = generateRoundRobin(bracketParticipants, { homeAndAway })
   const totalRounds = Math.max(...rrMatches.map((m) => m.roundNumber))
 
+  const legByRound = new Map(rrMatches.map((m) => [m.roundNumber, m.leg]))
   const roundNumbers = Array.from(new Set(rrMatches.map((m) => m.roundNumber))).sort((a, b) => a - b)
-  const roundsPayload = roundNumbers.map((rn) => ({
-    tournament_id: tournamentId,
-    round_number: rn,
-    round_name: `Round ${rn}`,
-  }))
+  const roundsPayload = roundNumbers.map((rn) => {
+    const leg = legByRound.get(rn)
+    const displayRound = homeAndAway ? Math.ceil(rn / 2) : rn
+    return {
+      tournament_id: tournamentId,
+      round_number: rn,
+      round_name: leg ? `Round ${displayRound} — ${leg === 1 ? '1st' : '2nd'} Leg` : `Round ${displayRound}`,
+    }
+  })
 
   const { data: insertedRounds, error: roundsError } = await supabase
     .from('rounds').insert(roundsPayload).select()
@@ -196,6 +211,7 @@ async function startRoundRobin(
     player2_id: m.player2.id,
     player2_name: m.player2.name,
     status: 'scheduled',
+    leg: m.leg ?? null,
   }))
 
   const { data: insertedMatches, error: matchesError } = await supabase
@@ -211,15 +227,24 @@ async function startGroupKnockout(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   tournamentId: string,
-  bracketParticipants: { id: string | null; name: string | null; participantId: string }[]
+  bracketParticipants: { id: string | null; name: string | null; participantId: string }[],
+  homeAndAway = false
 ) {
-  const groups = generateGroups(bracketParticipants)
+  const groups = generateGroups(bracketParticipants, { homeAndAway })
 
   // Collect all unique round numbers across groups and create rounds
   // Each group has its own set of round numbers starting from 1.
   // We interleave: Group A Round 1 → round 1, Group B Round 1 → round 2, Group A Round 2 → round 3, ...
   // Simpler: assign global round numbers sequentially per group-round
   const maxGroupRounds = Math.max(...groups.map((g) => Math.max(...g.matches.map((m) => m.roundNumber))))
+
+  // Every match within a given (group, roundNumber) shares the same leg (if any) —
+  // round 2r-1 is entirely leg 1, round 2r entirely leg 2 — so one lookup per
+  // group-round suffices for the round name.
+  const legByGroupRound = new Map<string, 1 | 2 | undefined>()
+  for (let gi = 0; gi < groups.length; gi++) {
+    for (const m of groups[gi].matches) legByGroupRound.set(`${gi}_${m.roundNumber}`, m.leg)
+  }
 
   const roundsPayload: { tournament_id: string; round_number: number; round_name: string; phase: string }[] = []
   let globalRoundNum = 1
@@ -229,10 +254,14 @@ async function startGroupKnockout(
     for (let gi = 0; gi < groups.length; gi++) {
       const groupName = groups[gi].groupName
       roundKeyToGlobal.set(`${gi}_${rn}`, globalRoundNum)
+      const leg = legByGroupRound.get(`${gi}_${rn}`)
+      const displayRound = homeAndAway ? Math.ceil(rn / 2) : rn
       roundsPayload.push({
         tournament_id: tournamentId,
         round_number: globalRoundNum,
-        round_name: `Group ${groupName} · Round ${rn}`,
+        round_name: leg
+          ? `Group ${groupName} · Round ${displayRound} — ${leg === 1 ? '1st' : '2nd'} Leg`
+          : `Group ${groupName} · Round ${displayRound}`,
         phase: 'group',
       })
       globalRoundNum++
@@ -262,6 +291,7 @@ async function startGroupKnockout(
         player2_name: m.player2.name,
         status: 'scheduled',
         group_name: group.groupName,
+        leg: m.leg ?? null,
       })
     }
   }

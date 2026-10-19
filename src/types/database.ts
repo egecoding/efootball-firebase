@@ -33,6 +33,7 @@ export interface Tournament {
   invite_code: string
   is_public: boolean
   starts_at: string | null
+  home_and_away: boolean
   created_at: string
   updated_at: string
 }

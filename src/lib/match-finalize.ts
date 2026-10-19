@@ -18,17 +18,17 @@ export interface DrawRuleMatch {
 // except individual legs of a two-legged tie (the aggregate decides those).
 export function isDrawAllowed(format: string, match: DrawRuleMatch): boolean {
   const isKnockoutPhase =
-    format === 'knockout' ||
+    (format === 'knockout' && !match.tie_id) || // single-leg Final only, when home_and_away is on
     format === 'double_elimination' ||
     (format === 'home_away_knockout' && !match.tie_id) || // single-leg Final only
     (format === 'group_knockout' && !match.group_name && !match.tie_id) || // single-leg final
     (format === 'champions_league' && match.bracket !== 'league') // playoff + KO rounds
 
-  // Two-legged ties (group_knockout / home_away_knockout) allow draws per leg — aggregate decides
-  const isTwoLeggedLeg =
-    (format === 'group_knockout' || format === 'home_away_knockout') &&
-    match.tie_id !== null &&
-    match.tie_id !== undefined
+  // Any match that's one leg of a two-legged tie allows a draw per leg — the
+  // aggregate decides the tie. Keyed on tie_id alone rather than a per-format
+  // list: tie_id is only ever set by the two-legging code paths, regardless of
+  // which format (or toggle) put it there.
+  const isTwoLeggedLeg = match.tie_id !== null && match.tie_id !== undefined
 
   return !isKnockoutPhase || isTwoLeggedLeg
 }
@@ -163,10 +163,12 @@ export async function finalizeMatch(
     url: `/tournaments/${match.tournament_id}/portal`,
   })
 
-  // ── Two-legged tie logic (group_knockout knockout phase) ─────────────────
+  // ── Two-legged tie logic ───────────────────────────────────────────────────
   // Leg 1 completed → unlock leg 2 (schedule it)
   // Leg 2 completed → aggregate both legs and advance winner
-  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 1) {
+  // Keyed on tie_id/leg alone (not a per-format list) so it applies uniformly
+  // to group_knockout, home_away_knockout, and knockout-with-home_and_away.
+  if (match.tie_id && match.leg === 1) {
     // Leg 1 done — find and schedule leg 2 via tie_id (robust: doesn't rely on next_match_id being set)
     const { data: leg2Match } = await admin.from('matches').select('id').eq('tie_id', match.tie_id).eq('leg', 2).single()
     if (leg2Match) {
@@ -178,7 +180,7 @@ export async function finalizeMatch(
     return { ok: true, winnerId: winner_id }
   }
 
-  if ((tournament.format === 'group_knockout' || tournament.format === 'home_away_knockout') && match.tie_id && match.leg === 2) {
+  if (match.tie_id && match.leg === 2) {
     // Fetch leg 1 (other match in same tie)
     const { data: leg1 } = await admin
       .from('matches')

@@ -106,9 +106,13 @@ CREATE TABLE IF NOT EXISTS public.tournaments (
   invite_code       TEXT UNIQUE NOT NULL DEFAULT upper(substring(replace(replace(encode(gen_random_bytes(9), 'base64'), '/', ''), '+', ''), 1, 8)),
   is_public         BOOLEAN NOT NULL DEFAULT true,
   starts_at         TIMESTAMPTZ,
+  home_and_away     BOOLEAN NOT NULL DEFAULT false,  -- organizer opt-in: play each pairing twice (legs scheduled back-to-back). Only meaningful for knockout / round_robin / league / group_knockout.
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Migration: add home_and_away opt-in column to existing databases
+ALTER TABLE public.tournaments ADD COLUMN IF NOT EXISTS home_and_away BOOLEAN NOT NULL DEFAULT false;
 
 -- Migration: add format column to existing databases
 ALTER TABLE public.tournaments

@@ -133,6 +133,8 @@ export interface RoundRobinMatch {
   roundNumber: number
   player1: BracketParticipant
   player2: BracketParticipant
+  /** Set only when generated with `homeAndAway` — which leg of the pairing this is. */
+  leg?: 1 | 2
 }
 
 /**
@@ -140,7 +142,8 @@ export interface RoundRobinMatch {
  * Every participant plays every other participant exactly once.
  */
 export function generateRoundRobin(
-  participants: BracketParticipant[]
+  participants: BracketParticipant[],
+  options?: { homeAndAway?: boolean }
 ): RoundRobinMatch[] {
   const list = [...participants]
   // Pad to even number with a bye
@@ -149,8 +152,7 @@ export function generateRoundRobin(
   const n = list.length
   const rounds = n - 1
   const matchesPerRound = n / 2
-  const result: RoundRobinMatch[] = []
-  let matchNumber = 1
+  const singleLeg: RoundRobinMatch[] = []
 
   // Circle method: fix list[0], rotate the rest
   const rotating = list.slice(1)
@@ -162,8 +164,8 @@ export function generateRoundRobin(
       const p2 = current[n - 1 - m]
       // Skip bye matches
       if (p1.name !== 'BYE' && p2.name !== 'BYE') {
-        result.push({
-          matchNumber: matchNumber++,
+        singleLeg.push({
+          matchNumber: 0, // renumbered below
           roundNumber: r + 1,
           player1: p1,
           player2: p2,
@@ -174,7 +176,28 @@ export function generateRoundRobin(
     rotating.unshift(rotating.pop()!)
   }
 
-  return result
+  if (!options?.homeAndAway) {
+    return singleLeg.map((m, i) => ({ ...m, matchNumber: i + 1 }))
+  }
+
+  // Double each round into an adjacent 1st/2nd-leg pair: round 2r-1 keeps the
+  // original fixture, round 2r replays the same pairings with home/away
+  // swapped — the return leg sits immediately next to the first, not spread
+  // to a "second half of the season" the way real double round-robins usually
+  // schedule it.
+  const doubled: RoundRobinMatch[] = []
+  let matchNumber = 1
+  for (const m of singleLeg) {
+    doubled.push({ ...m, matchNumber: matchNumber++, roundNumber: m.roundNumber * 2 - 1, leg: 1 })
+    doubled.push({
+      matchNumber: matchNumber++,
+      roundNumber: m.roundNumber * 2,
+      player1: m.player2,
+      player2: m.player1,
+      leg: 2,
+    })
+  }
+  return doubled
 }
 
 // ─── Champions League (Swiss System) ─────────────────────────────────────────
@@ -287,7 +310,10 @@ export interface GroupBracket {
  * Splits participants into groups and generates a round-robin schedule per group.
  * groupSize = 4 for 8+ participants, 2 for smaller groups.
  */
-export function generateGroups(participants: BracketParticipant[]): GroupBracket[] {
+export function generateGroups(
+  participants: BracketParticipant[],
+  options?: { homeAndAway?: boolean }
+): GroupBracket[] {
   const shuffled = [...participants]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
@@ -312,7 +338,7 @@ export function generateGroups(participants: BracketParticipant[]): GroupBracket
 
   return groups.map((members, idx) => {
     const groupName = groupNames[idx]
-    const rrMatches = generateRoundRobin(members).map((m) => ({
+    const rrMatches = generateRoundRobin(members, options).map((m) => ({
       ...m,
       matchNumber: globalMatchNum++,
       groupName,
