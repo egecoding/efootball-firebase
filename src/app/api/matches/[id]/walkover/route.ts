@@ -9,6 +9,13 @@ type AdminClient = ReturnType<typeof createAdminClient>
  * Writes a player into one slot of a downstream match, then opens that match
  * only if BOTH slots are now filled — otherwise the player who arrived first
  * sees a playable match against an empty slot and can submit a result for it.
+ *
+ * If that downstream match is itself leg 1 of a two-legged tie, the same
+ * winner also belongs in the mirrored slot of that tie's leg 2 (home/away
+ * swapped) — match-finalize.ts's leg-2-completion handler does this for a
+ * normally-confirmed tie; this replicates it for a walkover-decided one.
+ * Without it, a tie resolved by walkover fills the next round's leg 1 but
+ * leaves leg 2's mirrored slot permanently null.
  */
 async function advanceInto(
   admin: AdminClient,
@@ -27,11 +34,31 @@ async function advanceInto(
 
   const { data: next } = await admin
     .from('matches')
-    .select('player1_id, player1_name, player2_id, player2_name, status')
+    .select('player1_id, player1_name, player2_id, player2_name, status, tie_id')
     .eq('id', matchId)
     .single()
 
-  if (!next || next.status === 'completed' || next.status === 'walkover') return
+  if (!next) return
+
+  if (next.tie_id) {
+    const { data: leg2 } = await admin
+      .from('matches')
+      .select('id')
+      .eq('tie_id', next.tie_id)
+      .eq('leg', 2)
+      .single()
+    if (leg2) {
+      const swappedSlot = slot === 1 ? 2 : 1
+      const swappedIdField = swappedSlot === 1 ? 'player1_id' : 'player2_id'
+      const swappedNameField = swappedSlot === 1 ? 'player1_name' : 'player2_name'
+      await admin
+        .from('matches')
+        .update({ [swappedIdField]: playerId ?? null, [swappedNameField]: playerName ?? null })
+        .eq('id', leg2.id)
+    }
+  }
+
+  if (next.status === 'completed' || next.status === 'walkover') return
 
   const hasP1 = next.player1_id !== null || next.player1_name !== null
   const hasP2 = next.player2_id !== null || next.player2_name !== null
