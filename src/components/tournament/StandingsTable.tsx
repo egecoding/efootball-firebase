@@ -205,9 +205,7 @@ export function StandingsTable({ matches, participants, format, groupName }: Sta
               <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">GD</th>
               <th className="text-center px-3 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">PTS</th>
               <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">W</th>
-              {format === 'league' && (
-                <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">D</th>
-              )}
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">D</th>
               <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">L</th>
               <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide hidden sm:table-cell">F</th>
               <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide hidden sm:table-cell">A</th>
@@ -250,9 +248,7 @@ export function StandingsTable({ matches, participants, format, groupName }: Sta
                     {row.Pts}
                   </td>
                   <td className="text-center px-2 py-2.5 tabular-nums text-xs text-gray-600 dark:text-gray-400">{row.W}</td>
-                  {format === 'league' && (
-                    <td className="text-center px-2 py-2.5 text-gray-500 dark:text-gray-500 tabular-nums text-xs">{row.D}</td>
-                  )}
+                  <td className="text-center px-2 py-2.5 text-gray-500 dark:text-gray-500 tabular-nums text-xs">{row.D}</td>
                   <td className="text-center px-2 py-2.5 tabular-nums text-xs text-gray-600 dark:text-gray-400">{row.L}</td>
                   <td className="text-center px-2 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GF}</td>
                   <td className="text-center px-2 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GA}</td>
