@@ -148,49 +148,36 @@ export function StandingsTable({ matches, participants, format, groupName }: Sta
     return 'neutral'
   }
 
-  const zoneConfig: Record<Zone, { bg: string; border: string; pos: string; label: string; dot: string }> = {
+  const zoneConfig: Record<Zone, { bar: string; label: string; dot: string }> = {
     champion: {
-      bg: 'bg-amber-50 dark:bg-amber-900/25',
-      border: 'border-l-4 border-l-amber-400',
-      pos: 'text-amber-500 font-extrabold',
-      label: '🥇 Champion',
+      bar: 'border-l-4 border-l-amber-400',
+      label: 'Champion',
       dot: 'bg-amber-400',
     },
     top: {
-      bg: 'bg-green-50 dark:bg-green-900/20',
-      border: 'border-l-4 border-l-green-500',
-      pos: 'text-green-600 dark:text-green-400 font-bold',
-      label: '🏆 Promotion',
-      dot: 'bg-green-500',
-    },
-    playoff: {
-      bg: 'bg-blue-50 dark:bg-blue-900/20',
-      border: 'border-l-4 border-l-blue-500',
-      pos: 'text-blue-600 dark:text-blue-400 font-bold',
-      label: '⚔️ Playoff',
+      bar: 'border-l-4 border-l-blue-500',
+      label: 'Promotion',
       dot: 'bg-blue-500',
     },
+    playoff: {
+      bar: 'border-l-4 border-l-violet-500',
+      label: 'Playoff',
+      dot: 'bg-violet-500',
+    },
     relegation: {
-      bg: 'bg-red-50 dark:bg-red-900/20',
-      border: 'border-l-4 border-l-red-500',
-      pos: 'text-red-500 dark:text-red-400 font-bold',
-      label: '⬇️ Relegation',
+      bar: 'border-l-4 border-l-red-500',
+      label: 'Relegation',
       dot: 'bg-red-500',
     },
     neutral: {
-      bg: 'bg-white dark:bg-gray-900',
-      border: 'border-l-4 border-l-transparent',
-      pos: 'text-gray-400',
+      bar: 'border-l-4 border-l-transparent',
       label: '',
       dot: 'bg-gray-400',
     },
   }
 
-  // Position medals for top 3
-  const medals = ['🥇', '🥈', '🥉']
-
   return (
-    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm">
+    <div className="rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden shadow-sm bg-white dark:bg-gray-900">
       {/* Table header row */}
       {groupName && (
         <div className="px-4 py-2.5 bg-brand-500/10 border-b border-brand-500/20 flex items-center gap-2">
@@ -200,88 +187,75 @@ export function StandingsTable({ matches, participants, format, groupName }: Sta
 
       {/* Legend */}
       {n >= 4 && (
-        <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-100 dark:border-gray-800 flex-wrap text-xs text-gray-500 dark:text-gray-400">
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-400" /> Champion</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-green-500" /> Promotion</span>
-          {n >= 6 && <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500" /> Playoff</span>}
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-red-500" /> Relegation</span>
+        <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-100 dark:border-gray-800 flex-wrap text-[11px] text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-amber-400" /> Champion</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-blue-500" /> Promotion</span>
+          {n >= 6 && <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-violet-500" /> Playoff</span>}
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-500" /> Relegation</span>
         </div>
       )}
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/80">
-              <th className="text-left px-3 py-3 font-semibold text-gray-500 dark:text-gray-400 w-8">#</th>
-              <th className="text-left px-3 py-3 font-semibold text-gray-500 dark:text-gray-400">Club / Player</th>
-              <th className="text-center px-2 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs">P</th>
-              <th className="text-center px-2 py-3 font-semibold text-green-600 dark:text-green-400 text-xs">W</th>
+            <tr className="border-b border-gray-200 dark:border-gray-800">
+              <th className="text-left px-3 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide w-8">#</th>
+              <th className="text-left px-3 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">Team</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">P</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">GD</th>
+              <th className="text-center px-3 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">PTS</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">W</th>
               {format === 'league' && (
-                <th className="text-center px-2 py-3 font-semibold text-gray-400 text-xs">D</th>
+                <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">D</th>
               )}
-              <th className="text-center px-2 py-3 font-semibold text-red-500 dark:text-red-400 text-xs">L</th>
-              <th className="text-center px-2 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs hidden sm:table-cell">GF</th>
-              <th className="text-center px-2 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs hidden sm:table-cell">GA</th>
-              <th className="text-center px-2 py-3 font-semibold text-gray-500 dark:text-gray-400 text-xs">GD</th>
-              <th className="text-center px-3 py-3 font-bold text-gray-900 dark:text-white text-xs w-12">PTS</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide">L</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide hidden sm:table-cell">F</th>
+              <th className="text-center px-2 py-2.5 font-semibold text-gray-400 dark:text-gray-500 text-[11px] uppercase tracking-wide hidden sm:table-cell">A</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((row, i) => {
               const zone = getZone(i)
               const cfg = zoneConfig[zone]
-              const isZoneStart = i > 0 && getZone(i - 1) !== zone
+              const stripe = i % 2 === 1 ? 'bg-gray-50/80 dark:bg-black/20' : ''
 
               return (
                 <tr
                   key={row.id ?? row.name}
-                  className={`border-b border-gray-100 dark:border-gray-800 last:border-0 transition-colors hover:brightness-95 dark:hover:brightness-110 ${cfg.bg} ${cfg.border} ${isZoneStart ? 'border-t-2 border-t-gray-200 dark:border-t-gray-700' : ''}`}
+                  className={`border-b border-b-gray-100 dark:border-b-gray-800/80 last:border-b-0 transition-colors hover:bg-gray-50 dark:hover:bg-white/[0.04] ${stripe} ${cfg.bar}`}
                 >
                   {/* Position */}
-                  <td className={`px-3 py-3 tabular-nums text-center ${cfg.pos}`}>
-                    {i < 3 ? <span className="text-base leading-none">{medals[i]}</span> : <span className="text-xs font-bold">{i + 1}</span>}
+                  <td className="px-3 py-2.5 tabular-nums text-center text-xs font-bold text-gray-500 dark:text-gray-400">
+                    {i + 1}
                   </td>
 
                   {/* Player — avatar + name */}
-                  <td className="px-3 py-2.5">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <PlayerAvatar name={row.name} avatarUrl={row.avatarUrl} />
-                      <div className="min-w-0">
-                        <span className="font-semibold text-gray-900 dark:text-white truncate block">{row.name}</span>
-                        {zone !== 'neutral' && (
-                          <span className={`text-[10px] font-medium ${cfg.pos} hidden sm:block`}>{cfg.label}</span>
-                        )}
-                      </div>
+                      <span className="font-semibold text-gray-900 dark:text-white truncate block min-w-0">{row.name}</span>
                     </div>
                   </td>
 
                   {/* Stats */}
-                  <td className="text-center px-2 py-3 text-gray-600 dark:text-gray-400 tabular-nums text-xs">{row.P}</td>
-                  <td className="text-center px-2 py-3 tabular-nums text-xs font-semibold text-green-600 dark:text-green-400">{row.W}</td>
-                  {format === 'league' && (
-                    <td className="text-center px-2 py-3 text-gray-500 dark:text-gray-500 tabular-nums text-xs">{row.D}</td>
-                  )}
-                  <td className="text-center px-2 py-3 tabular-nums text-xs font-medium text-red-500 dark:text-red-400">{row.L}</td>
-                  <td className="text-center px-2 py-3 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GF}</td>
-                  <td className="text-center px-2 py-3 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GA}</td>
-                  <td className={`text-center px-2 py-3 tabular-nums text-xs font-bold ${
+                  <td className="text-center px-2 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs">{row.P}</td>
+                  <td className={`text-center px-2 py-2.5 tabular-nums text-xs font-semibold ${
                     row.GD > 0 ? 'text-green-600 dark:text-green-400' :
                     row.GD < 0 ? 'text-red-500 dark:text-red-400' :
                     'text-gray-400'
                   }`}>
                     {row.GD > 0 ? `+${row.GD}` : row.GD}
                   </td>
-                  <td className="text-center px-3 py-3 tabular-nums">
-                    <span className={`inline-flex items-center justify-center h-7 w-8 rounded-lg text-sm font-extrabold ${
-                      zone === 'champion' ? 'bg-amber-400 text-amber-900' :
-                      zone === 'top'      ? 'bg-green-500 text-white' :
-                      zone === 'playoff'  ? 'bg-blue-500 text-white' :
-                      zone === 'relegation' ? 'bg-red-500 text-white' :
-                      'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white'
-                    }`}>
-                      {row.Pts}
-                    </span>
+                  <td className="text-center px-3 py-2.5 tabular-nums text-sm font-extrabold text-gray-900 dark:text-white">
+                    {row.Pts}
                   </td>
+                  <td className="text-center px-2 py-2.5 tabular-nums text-xs text-gray-600 dark:text-gray-400">{row.W}</td>
+                  {format === 'league' && (
+                    <td className="text-center px-2 py-2.5 text-gray-500 dark:text-gray-500 tabular-nums text-xs">{row.D}</td>
+                  )}
+                  <td className="text-center px-2 py-2.5 tabular-nums text-xs text-gray-600 dark:text-gray-400">{row.L}</td>
+                  <td className="text-center px-2 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GF}</td>
+                  <td className="text-center px-2 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs hidden sm:table-cell">{row.GA}</td>
                 </tr>
               )
             })}
