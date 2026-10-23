@@ -85,8 +85,11 @@ export function ParticipantList({
         const displayName = profile?.display_name ?? profile?.username ?? p.name ?? 'Unknown'
         const isGuest = !p.user_id
         const canRemove = isOrganizer || currentUserId === p.user_id
+        // Having played only blocks removal (it would orphan match history);
+        // renaming is always available to the organizer since the API now
+        // only ever touches that participant's not-yet-played matches.
         const isLocked = lockedParticipantIds?.has(p.id) ?? false
-        const canEdit = isOrganizer && !isLocked
+        const canEdit = isOrganizer
         const isEditing = editingId === p.id
 
         if (isEditing) {
@@ -149,7 +152,7 @@ export function ParticipantList({
               </Link>
             )}
             {isLocked && isOrganizer && (
-              <span title="Already played — locked" className="text-gray-300 dark:text-gray-600">
+              <span title="Already played — can't be removed, but can still be renamed" className="text-gray-300 dark:text-gray-600">
                 <Lock className="h-3.5 w-3.5" />
               </span>
             )}

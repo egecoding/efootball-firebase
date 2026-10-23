@@ -328,7 +328,9 @@ export function ManagePanel({ tournament, participants, matches, baseUrl, isSupe
   const pendingLeg2Matches = matches.filter((m) => m.status === 'pending' && m.leg === 2)
 
   // Participants who've already played a match (completed/awaiting_confirmation/walkover)
-  // can no longer be edited or removed — keeps match history & standings consistent.
+  // can no longer be removed — keeps match history & standings consistent. Renaming is
+  // still allowed for these (ParticipantList's canEdit ignores this set); the rename API
+  // only ever rewrites their not-yet-played matches.
   const lockedParticipantIds = new Set(
     participants
       .filter((p) =>
